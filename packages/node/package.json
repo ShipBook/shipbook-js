@@ -1,0 +1,39 @@
+{
+  "name": "@shipbook/node",
+  "version": "0.3.0",
+  "description": "Shipbook SDK for Node.js - Remote logging and error tracking for servers and serverless",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "lib/**/*"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf lib",
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ShipBook/shipbook-js.git",
+    "directory": "packages/node"
+  },
+  "homepage": "https://www.shipbook.io/",
+  "keywords": [
+    "shipbook",
+    "node",
+    "logging",
+    "error-tracking",
+    "serverless"
+  ],
+  "author": "Elisha Sterngold",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "@shipbook/core": "^0.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0"
+  }
+}

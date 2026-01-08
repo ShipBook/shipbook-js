@@ -1,0 +1,39 @@
+{
+  "name": "@shipbook/react-native",
+  "version": "0.3.0",
+  "description": "Shipbook SDK for React Native - Remote logging and crash reporting",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "lib/**/*"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf lib",
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ShipBook/shipbook-js.git",
+    "directory": "packages/react-native"
+  },
+  "homepage": "https://www.shipbook.io/",
+  "keywords": [
+    "shipbook",
+    "react-native",
+    "logging",
+    "crash-reporting"
+  ],
+  "author": "Elisha Sterngold",
+  "license": "MIT",
+  "dependencies": {
+    "@shipbook/core": "^0.3.0",
+    "@react-native-async-storage/async-storage": "^1.19.3"
+  },
+  "peerDependencies": {
+    "react-native": ">=0.63.0"
+  },
+  "devDependencies": {
+    "@types/react-native": "^0.72.0"
+  }
+}

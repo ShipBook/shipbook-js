@@ -1,0 +1,36 @@
+{
+  "name": "@shipbook/core",
+  "version": "0.3.0",
+  "description": "Shipbook core SDK - Platform-agnostic logging foundation",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "lib/**/*"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf lib",
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ShipBook/shipbook-js.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://www.shipbook.io/",
+  "keywords": [
+    "shipbook",
+    "logging",
+    "core"
+  ],
+  "author": "Elisha Sterngold",
+  "license": "MIT",
+  "dependencies": {
+    "eventemitter3": "^5.0.0",
+    "stacktrace-parser": "^0.1.10",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/uuid": "^9.0.0"
+  }
+}

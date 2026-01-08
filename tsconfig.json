@@ -1,14 +1,24 @@
 {
   "compilerOptions": {
-    "lib": ["es6"],
-    "target": "es6",
+    "lib": ["ES2020"],
+    "target": "ES2020",
     "module": "commonjs",
+    "moduleResolution": "node",
     "declaration": true,
-    "outDir": "./lib",
+    "declarationMap": true,
+    "sourceMap": true,
     "strict": true,
-    "watch": true,
-    "skipLibCheck": true
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "composite": true
   },
-  "include": ["src"],
-  "exclude": ["node_modules", "**/__tests__/*"]
+  "references": [
+    { "path": "./packages/core" },
+    { "path": "./packages/react-native" },
+    { "path": "./packages/browser" },
+    { "path": "./packages/node" }
+  ],
+  "exclude": ["node_modules", "**/node_modules", "**/lib"]
 }
