@@ -3,6 +3,11 @@ import React, { useEffect } from 'react';
 import { Button, StyleSheet, Text, View } from 'react-native';
 import Shipbook from '@shipbook/react-native';
 
+// Initialize Shipbook - replace with your actual credentials
+// TODO: Replace these with your Shipbook App ID and App Key from https://app.shipbook.io
+const APP_ID = 'YOUR_APP_ID_HERE';
+const APP_KEY = 'YOUR_APP_KEY_HERE';
+
 let log = Shipbook.getLogger("test");
 
 
@@ -10,7 +15,7 @@ export default function App() {
   useEffect(() => {
     // Your code here
     console.log('entered useEffect')
-    Shipbook.start('61473c08be7ede409f671363', 'cc3c9470e1efeb6f037a9ebacf95e0e5', {
+    Shipbook.start(APP_ID, APP_KEY, {
       appVersion: '1.0.1',
       appBuild: '2',
     });

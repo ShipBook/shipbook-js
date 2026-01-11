@@ -2,15 +2,32 @@ import { useEffect, useState, useRef } from 'react';
 import { Shipbook } from '@shipbook/browser';
 
 // Initialize Shipbook - replace with your actual credentials
-const APP_ID = '5b8820297696832a3559a03e';
-const APP_KEY = '313b2dc9b15fb31f2c085aa994d3c7b1';
+// TODO: Replace these with your Shipbook App ID and App Key from https://app.shipbook.io
+const APP_ID = 'YOUR_APP_ID_HERE';
+const APP_KEY = 'YOUR_APP_KEY_HERE';
 
 // Get a logger instance
 const log = Shipbook.getLogger('BrowserExample');
 
+interface UserInfo {
+  userId: string;
+  userName?: string;
+  fullName?: string;
+  email?: string;
+  phoneNumber?: string;
+}
+
 function App() {
   const [logs, setLogs] = useState<string[]>([]);
   const [initialized, setInitialized] = useState(false);
+  const [currentUser, setCurrentUser] = useState<UserInfo | null>(null);
+  const [userForm, setUserForm] = useState<UserInfo>({
+    userId: '',
+    userName: '',
+    fullName: '',
+    email: '',
+    phoneNumber: '',
+  });
   const initStarted = useRef(false);
 
   useEffect(() => {
@@ -87,12 +104,155 @@ function App() {
     addLog('Logged screen: TestScreen');
   };
 
+  const handleRegisterUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedUserId = userForm.userId.trim();
+    if (!trimmedUserId) {
+      addLog('Error: User ID is required');
+      return;
+    }
+
+    try {
+      Shipbook.registerUser(
+        trimmedUserId,
+        userForm.userName?.trim() || undefined,
+        userForm.fullName?.trim() || undefined,
+        userForm.email?.trim() || undefined,
+        userForm.phoneNumber?.trim() || undefined
+      );
+      
+      setCurrentUser({
+        userId: trimmedUserId,
+        userName: userForm.userName?.trim() || undefined,
+        fullName: userForm.fullName?.trim() || undefined,
+        email: userForm.email?.trim() || undefined,
+        phoneNumber: userForm.phoneNumber?.trim() || undefined,
+      });
+      
+      addLog(`User registered: ${trimmedUserId}`);
+      
+      // Reset form
+      setUserForm({
+        userId: '',
+        userName: '',
+        fullName: '',
+        email: '',
+        phoneNumber: '',
+      });
+    } catch (err) {
+      addLog(`Failed to register user: ${err}`);
+    }
+  };
+
+  const handleLogout = () => {
+    try {
+      Shipbook.logout();
+      setCurrentUser(null);
+      addLog('User logged out');
+    } catch (err) {
+      addLog(`Failed to logout: ${err}`);
+    }
+  };
+
+  const handleUserFormChange = (field: keyof UserInfo, value: string) => {
+    setUserForm((prev) => ({ ...prev, [field]: value }));
+  };
+
   return (
     <div style={styles.container}>
       <h1 style={styles.title}>Shipbook Browser Example</h1>
       
       <div style={styles.status}>
         Status: {initialized ? '✅ Initialized' : '⏳ Initializing...'}
+        {currentUser && (
+          <div style={styles.userInfo}>
+            Current User: {currentUser.userId}
+            {currentUser.userName && ` (${currentUser.userName})`}
+          </div>
+        )}
+      </div>
+
+      <div style={styles.section}>
+        <h2>User Management</h2>
+        {!currentUser ? (
+          <form onSubmit={handleRegisterUser} style={styles.form}>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>
+                User ID <span style={styles.required}>*</span>
+                <input
+                  type="text"
+                  value={userForm.userId}
+                  onChange={(e) => handleUserFormChange('userId', e.target.value)}
+                  style={styles.input}
+                  required
+                />
+              </label>
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>
+                User Name
+                <input
+                  type="text"
+                  value={userForm.userName}
+                  onChange={(e) => handleUserFormChange('userName', e.target.value)}
+                  style={styles.input}
+                />
+              </label>
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>
+                Full Name
+                <input
+                  type="text"
+                  value={userForm.fullName}
+                  onChange={(e) => handleUserFormChange('fullName', e.target.value)}
+                  style={styles.input}
+                />
+              </label>
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>
+                Email
+                <input
+                  type="email"
+                  value={userForm.email}
+                  onChange={(e) => handleUserFormChange('email', e.target.value)}
+                  style={styles.input}
+                />
+              </label>
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>
+                Phone Number
+                <input
+                  type="tel"
+                  value={userForm.phoneNumber}
+                  onChange={(e) => handleUserFormChange('phoneNumber', e.target.value)}
+                  style={styles.input}
+                />
+              </label>
+            </div>
+            <button type="submit" style={styles.button}>
+              Register User
+            </button>
+          </form>
+        ) : (
+          <div>
+            <div style={styles.userDetails}>
+              <p style={styles.userDetailText}><strong>User ID:</strong> {currentUser.userId}</p>
+              {currentUser.userName && <p style={styles.userDetailText}><strong>User Name:</strong> {currentUser.userName}</p>}
+              {currentUser.fullName && <p style={styles.userDetailText}><strong>Full Name:</strong> {currentUser.fullName}</p>}
+              {currentUser.email && <p style={styles.userDetailText}><strong>Email:</strong> {currentUser.email}</p>}
+              {currentUser.phoneNumber && <p style={styles.userDetailText}><strong>Phone:</strong> {currentUser.phoneNumber}</p>}
+            </div>
+            <button
+              style={{ ...styles.button, backgroundColor: '#d9534f' }}
+              onClick={handleLogout}
+            >
+              Logout
+            </button>
+          </div>
+        )}
       </div>
 
       <div style={styles.section}>
@@ -206,6 +366,51 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 8,
     fontSize: 14,
     color: '#666',
+  },
+  userInfo: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#28a745',
+    fontWeight: 'bold',
+  },
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 16,
+  },
+  formGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 4,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: 500,
+    color: '#333',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 4,
+  },
+  required: {
+    color: '#d9534f',
+  },
+  input: {
+    padding: '8px 12px',
+    fontSize: 14,
+    border: '1px solid #ddd',
+    borderRadius: 4,
+    fontFamily: 'inherit',
+  },
+  userDetails: {
+    backgroundColor: '#f8f9fa',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  userDetailText: {
+    margin: '8px 0',
+    fontSize: 14,
+    color: '#333',
   },
 };
 
