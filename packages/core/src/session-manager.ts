@@ -12,6 +12,7 @@ import type { IEventManager } from './interfaces/event-manager';
 import type { IExceptionHandler } from './interfaces/exception-handler';
 import appenderFactory from './appenders/appender-factory';
 import Exception from './models/exception';
+import AppEvent from './models/app-event';
 
 const defaultConfig: ConfigResponse = {
   appenders: [
@@ -188,7 +189,6 @@ class SessionManager {
     if (this.appStateUnsubscribe) return;
     
     this.appStateUnsubscribe = this.eventManager.onStateChange?.((state) => {
-      const AppEvent = require('./models/app-event').default;
       const orientation = this.eventManager.getOrientation?.() ?? 'unknown';
       const event = new AppEvent('change', state, orientation);
       logManager.push(event);

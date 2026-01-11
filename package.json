@@ -4,14 +4,18 @@
   "private": true,
   "description": "Shipbook JavaScript SDK - Multi-platform logging for React Native, Browser, and Node.js",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "examples/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces",
+    "build": "npm run build --workspaces --if-present",
     "build:core": "npm run build -w @shipbook/core",
     "build:react-native": "npm run build -w @shipbook/react-native",
     "build:browser": "npm run build -w @shipbook/browser",
     "build:node": "npm run build -w @shipbook/node",
+    "start:browser": "npm run dev -w @shipbook/example-browser",
+    "start:node": "npm start -w @shipbook/example-node",
+    "start:react-native": "npm start -w @shipbook/example-react-native",
     "test": "npm run test --workspaces --if-present",
     "clean": "npm run clean --workspaces --if-present"
   },

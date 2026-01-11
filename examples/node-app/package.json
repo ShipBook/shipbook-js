@@ -1,0 +1,19 @@
+{
+  "name": "@shipbook/example-node",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "build": "tsc",
+    "start:built": "node lib/index.js"
+  },
+  "dependencies": {
+    "@shipbook/node": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}

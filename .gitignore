@@ -5,6 +5,17 @@ node_modules/
 
 # Build output (each package has its own lib/)
 **/lib/
+**/dist/
+
+# Expo (React Native example)
+.expo/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
 
 # Testing
 /coverage

@@ -51,30 +51,45 @@ export default class Log {
     file?: string,
     line?: number
   ): void {
-    let message: Message;
-    
-    if (!tag) {
-      message = new Message(msg, severity, undefined, undefined, error, func, file, line);
-      if (!message.tag) return;
+    // Create a temporary message to get the tag if not provided
+    const tempTag = tag ?? Log.getTagFromStack();
+    if (!tempTag) return;
 
-      if (SeverityUtil.value(severity) > SeverityUtil.value(logManager.getSeverity(message.tag))) {
-        return;
-      }
-      const stackTrace = SeverityUtil.value(severity) <= SeverityUtil.value(logManager.getCallStackSeverity(message.tag))
-        ? new Error().stack
-        : undefined;
-      message.stackTrace = stackTrace;
-    } else {
-      if (SeverityUtil.value(severity) > SeverityUtil.value(logManager.getSeverity(tag))) {
-        return;
-      }
-      const stackTrace = SeverityUtil.value(severity) <= SeverityUtil.value(logManager.getCallStackSeverity(tag))
-        ? new Error().stack
-        : undefined;
-      message = new Message(msg, severity, tag, stackTrace, error, func, file, line);
+    if (SeverityUtil.value(severity) > SeverityUtil.value(logManager.getSeverity(tempTag))) {
+      return;
     }
-    
+
+    const stackTrace = SeverityUtil.value(severity) <= SeverityUtil.value(logManager.getCallStackSeverity(tempTag))
+      ? new Error().stack
+      : undefined;
+
+    const message = new Message(msg, severity, tag, stackTrace, error, func, file, line);
     logManager.push(message);
+  }
+
+  /**
+   * Extract tag from current stack trace
+   */
+  private static getTagFromStack(): string | undefined {
+    const stack = new Error().stack;
+    if (!stack) return undefined;
+
+    // Parse stack and find the calling file
+    const lines = stack.split('\n');
+    // Skip first few lines (Error, getTagFromStack, message, static method, actual caller)
+    for (let i = 4; i < lines.length; i++) {
+      const line = lines[i];
+      const match = line.match(/at\s+(?:.+?\s+)?\(?(.+?):\d+:\d+\)?/);
+      if (match && match[1]) {
+        const fileName = match[1];
+        const lastDot = fileName.lastIndexOf('.');
+        const lastSlash = Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\'));
+        const start = lastSlash + 1;
+        const end = lastDot > start ? lastDot : fileName.length;
+        return fileName.substring(start, end);
+      }
+    }
+    return '<unknown>';
   }
 
   // Instance methods

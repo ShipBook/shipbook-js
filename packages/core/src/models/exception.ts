@@ -2,17 +2,17 @@ import * as stackTraceParser from 'stacktrace-parser';
 import BaseLog, { LogType } from './base-log';
 
 export class StackTraceElement {
-  methodName?: string;
-  fileName?: string;
-  lineNumber?: number;
-  column?: number;
+  methodName: string;
+  fileName: string;
+  lineNumber: number;
+  column: number;
   arguments?: string[];
 
   constructor(stackFrame: stackTraceParser.StackFrame) {
-    this.methodName = stackFrame.methodName ?? undefined;
-    this.fileName = stackFrame.file ?? undefined;
-    this.lineNumber = stackFrame.lineNumber ?? undefined;
-    this.column = stackFrame.column ?? undefined;
+    this.methodName = stackFrame.methodName ?? '<unknown>';
+    this.fileName = stackFrame.file ?? '<unknown>';
+    this.lineNumber = stackFrame.lineNumber ?? 0;
+    this.column = stackFrame.column ?? 0;
   }
 }
 

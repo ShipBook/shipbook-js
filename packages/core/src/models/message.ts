@@ -1,6 +1,7 @@
 import * as stackTraceParser from 'stacktrace-parser';
 import BaseLog, { LogType } from './base-log';
 import { Severity } from './severity';
+import { StackTraceElement } from './exception';
 
 export default class Message extends BaseLog {
   static ignoreClasses = new Set<string>();
@@ -8,7 +9,7 @@ export default class Message extends BaseLog {
   severity: Severity;
   message: string;
   tag?: string;
-  stackTrace?: string;
+  stackTrace?: StackTraceElement[];
   error?: Error;
   function?: string;
   fileName?: string;
@@ -22,7 +23,7 @@ export default class Message extends BaseLog {
     message: string,
     severity: Severity,
     tag?: string,
-    stackTrace?: string,
+    rawStackTrace?: string,
     error?: Error,
     func?: string,
     file?: string,
@@ -32,24 +33,34 @@ export default class Message extends BaseLog {
     this.message = message;
     this.severity = severity;
     this.tag = tag;
-    this.stackTrace = stackTrace;
     this.error = error;
     this.function = func;
     this.fileName = file;
     this.lineNumber = line;
 
     if (!file) {
-      this.parseStackTrace();
+      this.parseStackTrace(rawStackTrace);
     } else {
+      // If file info provided, still parse the stackTrace for the full trace
+      if (rawStackTrace) {
+        const stack = stackTraceParser.parse(rawStackTrace);
+        this.stackTrace = stack.map(sf => new StackTraceElement(sf));
+      }
       this.stackReceived = true;
     }
   }
 
-  private parseStackTrace(): void {
-    const stackString = new Error().stack!;
+  private parseStackTrace(rawStackTrace?: string): void {
+    const stackString = rawStackTrace ?? new Error().stack!;
     let stack = stackTraceParser.parse(stackString);
-    // Remove internal frames (constructor and calling methods)
-    stack.splice(0, 3);
+    
+    // If no raw stack was provided, remove internal frames (constructor and calling methods)
+    if (!rawStackTrace) {
+      stack.splice(0, 3);
+    }
+
+    // Convert to StackTraceElement array
+    this.stackTrace = stack.map(sf => new StackTraceElement(sf));
 
     // Find the first frame that isn't from ignored classes
     const frame = stack.find(f => !Message.ignoreClasses.has(f.methodName ?? ''));
