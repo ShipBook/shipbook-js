@@ -1,0 +1,30 @@
+{
+  "name": "@shipbook/example-react-native",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "@babel/runtime": "^7.28.4",
+    "@react-native-async-storage/async-storage": "^1.24.0",
+    "@shipbook/core": "*",
+    "@shipbook/react-native": "*",
+    "eventemitter3": "^5.0.0",
+    "expo": "~49.0.10",
+    "expo-status-bar": "~1.6.0",
+    "react": "18.2.0",
+    "react-native": "0.72.4",
+    "stacktrace-parser": "^0.1.10",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0",
+    "@types/react": "~18.2.14",
+    "typescript": "^5.1.3"
+  }
+}

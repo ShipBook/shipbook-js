@@ -1,0 +1,10 @@
+{
+  "ignore_dirs": [
+    ".git",
+    ".expo",
+    "lib",
+    "dist",
+    "coverage",
+    "build"
+  ]
+}
