@@ -1,6 +1,6 @@
 {
   "name": "shipbook-js",
-  "version": "0.3.0",
+  "version": "0.0.0",
   "private": true,
   "description": "Shipbook JavaScript SDK - Multi-platform logging for React Native, Browser, and Node.js",
   "workspaces": [
