@@ -59,11 +59,37 @@ class BrowserStorage implements IStorage {
     const items = Array.isArray(value) ? value : [value];
     
     for (const item of items) {
-      this.storage.setItem(`${key}_${size}`, JSON.stringify(item));
-      size++;
+      try {
+        this.storage.setItem(`${key}_${size}`, JSON.stringify(item));
+        size++;
+      } catch {
+        // Storage quota exceeded - clear old items and retry
+        await this.clearOldItems(key, 10);
+        try {
+          this.storage.setItem(`${key}_${size}`, JSON.stringify(item));
+          size++;
+        } catch {
+          // Still failing, skip this item
+          console.warn('Shipbook: Storage quota exceeded, dropping log data');
+        }
+      }
     }
 
-    this.storage.setItem(`${key}_size`, size.toString());
+    try {
+      this.storage.setItem(`${key}_size`, size.toString());
+    } catch {
+      // Ignore - size tracking failed but data may have been saved
+    }
+  }
+
+  private async clearOldItems(key: string, count: number): Promise<void> {
+    const sizeStr = this.storage.getItem(`${key}_size`);
+    const size = Number(sizeStr ?? '0');
+    
+    const removeCount = Math.min(count, size);
+    for (let i = 0; i < removeCount; i++) {
+      this.storage.removeItem(`${key}_${i}`);
+    }
   }
 
   async popAllArrayObj(key: string): Promise<object[]> {
