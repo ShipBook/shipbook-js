@@ -6,6 +6,8 @@ import { Shipbook } from '@shipbook/browser';
 const APP_ID = 'YOUR_APP_ID_HERE';
 const APP_KEY = 'YOUR_APP_KEY_HERE';
 
+const isCredentialsConfigured = (APP_ID as string) !== 'YOUR_APP_ID_HERE' && (APP_KEY as string) !== 'YOUR_APP_KEY_HERE';
+
 // Get a logger instance
 const log = Shipbook.getLogger('BrowserExample');
 
@@ -39,7 +41,12 @@ function App() {
     Shipbook.enableInnerLog(true);
     
     // Start Shipbook
-    Shipbook.start(APP_ID, APP_KEY)
+    Shipbook.start(APP_ID, APP_KEY,
+      {
+        appVersion: '1.0.0',
+        appBuild: '123',
+      }
+    )
       .then(() => {
         setInitialized(true);
         addLog('Shipbook initialized successfully');
@@ -78,12 +85,41 @@ function App() {
     addLog('Logged: error');
   };
 
+  const handleLogWithObject = () => {
+    const user = { id: 123, name: 'John Doe', email: 'john@example.com' };
+    log.d('User data:', user);
+    addLog(`log.d('User data:', ${JSON.stringify(user)})`);
+  };
+
+  const handleLogWithArray = () => {
+    const items = ['apple', 'banana', 'cherry'];
+    log.i('Shopping list:', items);
+    addLog(`log.i('Shopping list:', ${JSON.stringify(items)})`);
+  };
+
+  const handleLogWithMultipleArgs = () => {
+    const count = 42;
+    const status = { active: true, role: 'admin' };
+    log.d('Processing request:', 'count =', count, 'status =', status);
+    addLog(`log.d('Processing request:', 'count =', ${count}, 'status =', ${JSON.stringify(status)})`);
+  };
+
   const handleException = () => {
     try {
       throw new Error('Test exception from browser');
     } catch (e) {
       log.e('Caught exception', e as Error);
       addLog('Logged: exception');
+    }
+  };
+
+  const handleErrorWithContext = () => {
+    const context = { userId: 'user123', action: 'purchase', amount: 99.99 };
+    try {
+      throw new Error('Payment failed');
+    } catch (e) {
+      log.e('Payment error with context:', context, e as Error);
+      addLog(`log.e('Payment error with context:', ${JSON.stringify(context)}, Error('Payment failed'))`);
     }
   };
 
@@ -267,9 +303,19 @@ function App() {
       </div>
 
       <div style={styles.section}>
+        <h2>Log with Additional Arguments</h2>
+        <div style={styles.buttonRow}>
+          <button style={styles.button} onClick={handleLogWithObject}>Log Object</button>
+          <button style={styles.button} onClick={handleLogWithArray}>Log Array</button>
+          <button style={styles.button} onClick={handleLogWithMultipleArgs}>Multiple Args</button>
+        </div>
+      </div>
+
+      <div style={styles.section}>
         <h2>Exceptions</h2>
         <div style={styles.buttonRow}>
           <button style={styles.button} onClick={handleException}>Caught Exception</button>
+          <button style={styles.button} onClick={handleErrorWithContext}>Error + Context</button>
           <button style={{ ...styles.button, backgroundColor: '#d9534f' }} onClick={handleUnhandledException}>
             Unhandled Exception
           </button>
@@ -298,8 +344,8 @@ function App() {
       </div>
 
       <div style={styles.footer}>
-        <p>Replace APP_ID and APP_KEY in App.tsx with your Shipbook credentials.</p>
-        <p>UUID: {Shipbook.getUUID() || 'N/A'}</p>
+        {!isCredentialsConfigured && <p>Replace APP_ID and APP_KEY in App.tsx with your Shipbook credentials.</p>}
+        <p>GUID: {Shipbook.getUUID() || 'N/A'}</p>
       </div>
     </div>
   );

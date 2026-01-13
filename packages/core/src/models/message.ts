@@ -8,12 +8,12 @@ export default class Message extends BaseLog {
 
   severity: Severity;
   message: string;
-  tag?: string;
+  tag: string;
   stackTrace?: StackTraceElement[];
-  error?: Error;
-  function?: string;
-  fileName?: string;
-  lineNumber?: number;
+  exception?: { name: string; reason: string; stackTrace?: StackTraceElement[] };
+  function: string;
+  fileName: string;
+  lineNumber: number;
   column?: number;
 
   private resolveList: ((message: Message) => void)[] = [];
@@ -32,11 +32,17 @@ export default class Message extends BaseLog {
     super(LogType.Message);
     this.message = message;
     this.severity = severity;
-    this.tag = tag;
-    this.error = error;
-    this.function = func;
-    this.fileName = file;
-    this.lineNumber = line;
+    this.tag = '';
+    this.function = func ?? '';
+    this.fileName = file ?? '';
+    this.lineNumber = line ?? 0;
+
+    if (error) {
+      this.exception = {
+        name: error.name,
+        reason: error.message
+      };
+    }
 
     if (!file) {
       this.parseStackTrace(rawStackTrace);
@@ -45,9 +51,35 @@ export default class Message extends BaseLog {
       if (rawStackTrace) {
         const stack = stackTraceParser.parse(rawStackTrace);
         this.stackTrace = stack.map(sf => new StackTraceElement(sf));
+        if (this.exception) this.exception.stackTrace = this.stackTrace;
       }
       this.stackReceived = true;
     }
+
+    // Set tag: use provided tag, or derive from fileName
+    this.tag = tag ?? this.deriveTagFromFileName();
+  }
+
+  private deriveTagFromFileName(): string {
+    if (!this.fileName) return '';
+    const lastDot = this.fileName.lastIndexOf('.');
+    const lastSlash = Math.max(
+      this.fileName.lastIndexOf('/'),
+      this.fileName.lastIndexOf('\\')
+    );
+    const start = lastSlash + 1;
+    const end = lastDot > start ? lastDot : this.fileName.length;
+    return this.fileName.substring(start, end);
+  }
+
+  private static isInternalFrame(file: string | undefined): boolean {
+    if (!file) return false;
+    // Skip frames from shipbook logging infrastructure
+    // Matches: shipbook-js/packages/core (dev), @shipbook/core (npm), node_modules/@shipbook
+    return file.includes('shipbook-js/packages/') ||
+           file.includes('node_modules/@shipbook') ||
+           file.includes('node_modules/shipbook') ||
+           /@shipbook\/(core|browser|node|react-native)/.test(file);
   }
 
   private parseStackTrace(rawStackTrace?: string): void {
@@ -62,31 +94,24 @@ export default class Message extends BaseLog {
     // Convert to StackTraceElement array
     this.stackTrace = stack.map(sf => new StackTraceElement(sf));
 
-    // Find the first frame that isn't from ignored classes
-    const frame = stack.find(f => !Message.ignoreClasses.has(f.methodName ?? ''));
+    // Find the first frame that isn't from internal logging files or ignored classes
+    const frame = stack.find(f => 
+      !Message.isInternalFrame(f.file ?? undefined) && 
+      !Message.ignoreClasses.has(f.methodName ?? '')
+    );
     
     if (frame) {
-      this.function = frame.methodName ?? undefined;
-      this.fileName = frame.file ?? undefined;
-      this.lineNumber = frame.lineNumber ?? undefined;
+      this.function = frame.methodName ?? '';
+      // Strip query parameters (e.g., Vite's cache-busting ?t=timestamp)
+      let fileName = frame.file ?? '';
+      const queryIndex = fileName.indexOf('?');
+      if (queryIndex !== -1) fileName = fileName.substring(0, queryIndex);
+      this.fileName = fileName;
+      this.lineNumber = frame.lineNumber ?? 0;
       this.column = frame.column ?? undefined;
     }
 
-    // If no tag provided, derive from filename
-    if (!this.tag) {
-      if (this.fileName) {
-        const lastDot = this.fileName.lastIndexOf('.');
-        const lastSlash = Math.max(
-          this.fileName.lastIndexOf('/'),
-          this.fileName.lastIndexOf('\\')
-        );
-        const start = lastSlash + 1;
-        const end = lastDot > start ? lastDot : this.fileName.length;
-        this.tag = this.fileName.substring(start, end);
-      } else {
-        this.tag = '<unknown>';
-      }
-    }
+    if (this.exception) this.exception.stackTrace = this.stackTrace;
 
     this.stackReceived = true;
     this.resolveList.forEach(resolve => resolve(this));
