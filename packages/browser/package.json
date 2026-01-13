@@ -1,6 +1,6 @@
 {
   "name": "@shipbook/browser",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Shipbook SDK for Browser/SPA - Remote logging and error tracking",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
