@@ -31,6 +31,19 @@ log.debug('Debug information');
 log.info('General information');
 log.warning('Warning message');
 log.error('Error message');
+
+// Log with additional parameters (like console.log)
+log.debug('User data:', { id: 123, name: 'John' });
+log.info('Items:', ['apple', 'banana']);
+log.debug('Screen:', screenName, 'Params:', params);
+
+// Log with an error object (must be last argument)
+try {
+  await fetchData();
+} catch (error) {
+  log.error('Fetch failed', error);
+  log.error('Failed with context:', { endpoint }, error);
+}
 ```
 
 ## Features

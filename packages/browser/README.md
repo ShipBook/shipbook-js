@@ -25,6 +25,19 @@ log.debug('Debug information');
 log.info('General information');
 log.warning('Warning message');
 log.error('Error message');
+
+// Log with additional parameters (like console.log)
+log.debug('User data:', { id: 123, name: 'John' });
+log.info('Items:', ['apple', 'banana']);
+log.debug('Count:', 42, 'Status:', { active: true });
+
+// Log with an error object (must be last argument)
+try {
+  throw new Error('Something failed');
+} catch (error) {
+  log.error('Operation failed', error);
+  log.error('Failed with context:', { userId: 'user123' }, error);
+}
 ```
 
 ## Features

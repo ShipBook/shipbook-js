@@ -66,11 +66,17 @@ log.i('Info message');
 log.d('Debug message');
 log.v('Verbose message');
 
-// Log with an error object
+// Log with additional parameters (like console.log)
+log.d('User data:', { id: 123, name: 'John' });
+log.i('Items:', ['apple', 'banana', 'cherry']);
+log.d('Processing:', 'count =', 42, 'status =', { active: true });
+
+// Log with an error object (must be the last argument)
 try {
   // ...
 } catch (error) {
   log.e('Operation failed', error);
+  log.e('Failed with context:', { userId: 'user123' }, error);
 }
 ```
 
@@ -173,6 +179,7 @@ import { Log } from '@shipbook/react-native';
 
 Log.e('Static error message');
 Log.i('Static info message');
+Log.d('Static with params:', { key: 'value' });
 ```
 
 ## Development

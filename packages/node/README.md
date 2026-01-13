@@ -25,6 +25,19 @@ log.debug('Debug information');
 log.info('General information');
 log.warning('Warning message');
 log.error('Error message');
+
+// Log with additional parameters (like console.log)
+log.debug('Request data:', { method: 'POST', path: '/api' });
+log.info('Processing items:', ['item1', 'item2']);
+log.debug('User:', userId, 'Action:', action);
+
+// Log with an error object (must be last argument)
+try {
+  await someOperation();
+} catch (error) {
+  log.error('Operation failed', error);
+  log.error('Failed with context:', { requestId }, error);
+}
 ```
 
 ## Features

@@ -20,6 +20,21 @@ This core package contains:
 - **Models** - Data structures for logs, exceptions, and events
 - **Networking** - API client for Shipbook cloud services
 
+## Logging API
+
+All log methods accept multiple arguments (like `console.log`):
+
+```typescript
+log.d('Message');                                    // Simple message
+log.d('User data:', { id: 123, name: 'John' });     // With object
+log.d('Items:', ['a', 'b', 'c']);                    // With array
+log.d('Count:', 42, 'Status:', { active: true });   // Multiple args
+log.e('Failed', new Error('Something went wrong')); // With error (last arg)
+log.e('Context:', { id: 123 }, new Error('Fail'));  // Context + error
+```
+
+Error objects should be passed as the **last argument** to be properly captured with stack traces.
+
 ## For Package Developers
 
 If you're building a new platform adapter for Shipbook, you'll need to implement the following interfaces:
