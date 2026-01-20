@@ -23,7 +23,6 @@ export default class Message extends BaseLog {
     message: string,
     severity: Severity,
     tag?: string,
-    rawStackTrace?: string,
     error?: Error
   ) {
     super(LogType.Message);
@@ -41,7 +40,7 @@ export default class Message extends BaseLog {
       };
     }
 
-    this.parseStackTrace(rawStackTrace);
+    this.parseStackTrace();
 
     // Set tag: use provided tag, or derive from fileName
     this.tag = tag ?? this.deriveTagFromFileName();
@@ -59,15 +58,13 @@ export default class Message extends BaseLog {
     return this.fileName.substring(start, end);
   }
 
-  private parseStackTrace(rawStackTrace?: string): void {
-    const stackString = rawStackTrace ?? new Error().stack!;
+  private parseStackTrace(): void {
+    const stackString = new Error().stack!;
     let stack = stackTraceParser.parse(stackString);
 
-    // If no raw stack was provided, remove internal SDK frames:
+    // Remove internal SDK frames:
     // 0: parseStackTrace, 1: Message constructor, 2: Log.message, 3: Log.e/w/i/d/v
-    if (!rawStackTrace) {
-      stack.splice(0, 4);
-    }
+    stack.splice(0, 4);
 
     // Convert to StackTraceElement array
     this.stackTrace = stack.map(sf => new StackTraceElement(sf));

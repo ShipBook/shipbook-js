@@ -1,5 +1,4 @@
 import { CONFIG_CHANGE, eventEmitter } from './utils/event-emitter';
-import InnerLog from './utils/inner-log';
 import logManager from './log-manager';
 import Message from './models/message';
 import { Severity, SeverityUtil } from './models/severity';
@@ -13,9 +12,8 @@ export default class Log {
     this.tag = tag;
     this.severity = logManager.getSeverity(tag);
     this.callStackSeverity = logManager.getCallStackSeverity(tag);
-    
+
     eventEmitter.addListener(CONFIG_CHANGE, () => {
-      InnerLog.i('config changed');
       this.severity = logManager.getSeverity(tag);
       this.callStackSeverity = logManager.getCallStackSeverity(tag);
     });
@@ -46,26 +44,6 @@ export default class Log {
       return { args: args.slice(0, -1), error: args[args.length - 1] as Error };
     }
     return { args, error: undefined };
-  }
-
-  private static getTagFromStack(): string | undefined {
-    const stack = new Error().stack;
-    if (!stack) return undefined;
-
-    const lines = stack.split('\n');
-    for (let i = 4; i < lines.length; i++) {
-      const line = lines[i];
-      const match = line.match(/at\s+(?:.+?\s+)?\(?(.+?):\d+:\d+\)?/);
-      if (match && match[1]) {
-        const fileName = match[1];
-        const lastDot = fileName.lastIndexOf('.');
-        const lastSlash = Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\'));
-        const start = lastSlash + 1;
-        const end = lastDot > start ? lastDot : fileName.length;
-        return fileName.substring(start, end);
-      }
-    }
-    return '<unknown>';
   }
 
   // Static methods for logging without a tag
@@ -100,18 +78,18 @@ export default class Log {
     error?: Error,
     tag?: string
   ): void {
-    const tempTag = tag ?? Log.getTagFromStack();
-    if (!tempTag) return;
+    // Create message first - it derives the tag from stack trace if not provided
+    const message = new Message(msg, severity, tag, error);
 
-    if (SeverityUtil.value(severity) > SeverityUtil.value(logManager.getSeverity(tempTag))) {
+    if (SeverityUtil.value(severity) > SeverityUtil.value(logManager.getSeverity(message.tag))) {
       return;
     }
 
-    const stackTrace = SeverityUtil.value(severity) <= SeverityUtil.value(logManager.getCallStackSeverity(tempTag))
-      ? new Error().stack
-      : undefined;
+    // Clear stackTrace if severity doesn't require it
+    if (SeverityUtil.value(severity) > SeverityUtil.value(logManager.getCallStackSeverity(message.tag))) {
+      message.stackTrace = undefined;
+    }
 
-    const message = new Message(msg, severity, tag, stackTrace, error);
     logManager.push(message);
   }
 
@@ -150,11 +128,13 @@ export default class Log {
       return;
     }
 
-    const stackTrace = SeverityUtil.value(severity) <= SeverityUtil.value(this.callStackSeverity)
-      ? new Error().stack
-      : undefined;
+    const message = new Message(msg, severity, this.tag, e);
 
-    const message = new Message(msg, severity, this.tag, stackTrace, e);
+    // Clear stackTrace if severity doesn't require it
+    if (SeverityUtil.value(severity) > SeverityUtil.value(this.callStackSeverity)) {
+      message.stackTrace = undefined;
+    }
+
     logManager.push(message);
   }
 }
