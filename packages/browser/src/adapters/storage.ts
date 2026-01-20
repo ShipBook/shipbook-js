@@ -1,129 +1,214 @@
 import type { IStorage } from '@shipbook/core';
+import InnerLog from '@shipbook/core/src/utils/inner-log';
 
 /**
- * Browser storage adapter using localStorage
+ * Browser storage adapter using IndexedDB for efficient large-scale storage
+ * Gracefully handles all errors to never crash the host application
  */
 class BrowserStorage implements IStorage {
-  private storage: Storage;
+  private dbName = 'ShipbookDB';
+  private version = 2;
+  private db: IDBDatabase | null = null;
+  private initPromise: Promise<void> | null = null;
+  private initFailed = false;
 
-  constructor() {
-    // Use localStorage by default, fallback to sessionStorage if not available
-    this.storage = typeof localStorage !== 'undefined' 
-      ? localStorage 
-      : sessionStorage;
+  // Store name - only need one for arrays
+  private readonly ARRAY_STORE = 'arrays';
+
+  /**
+   * Wraps IndexedDB request into a Promise
+   */
+  private promisifyRequest<T>(request: IDBRequest<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Waits for a transaction to complete
+   */
+  private waitForTx(tx: IDBTransaction): Promise<void> {
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  }
+
+  /**
+   * Opens and initializes the IndexedDB database
+   */
+  private async openDatabase(): Promise<IDBDatabase> {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.dbName, this.version);
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+
+      request.onupgradeneeded = (event) => {
+        const db = (event.target as IDBOpenDBRequest).result;
+        const oldVersion = (event as IDBVersionChangeEvent).oldVersion;
+
+        // Create array store with auto-increment and indexes for logs
+        if (!db.objectStoreNames.contains(this.ARRAY_STORE)) {
+          const arrayStore = db.createObjectStore(this.ARRAY_STORE, {
+            keyPath: 'id',
+            autoIncrement: true
+          });
+          arrayStore.createIndex('arrayKey', 'arrayKey', { unique: false });
+        }
+
+        // Migration from version 1 to 2: remove timestamp index
+        if (oldVersion < 2 && db.objectStoreNames.contains(this.ARRAY_STORE)) {
+          const transaction = (event.target as IDBOpenDBRequest).transaction;
+          if (transaction) {
+            const store = transaction.objectStore(this.ARRAY_STORE);
+            if (store.indexNames.contains('timestamp')) {
+              store.deleteIndex('timestamp');
+            }
+          }
+        }
+      };
+    });
+  }
+
+  /**
+   * Ensures database is initialized before use
+   */
+  private async ensureDB(): Promise<IDBDatabase | null> {
+    if (this.initFailed) return null;
+    if (this.db) return this.db;
+
+    // Initialize only once, even if called multiple times
+    if (!this.initPromise) {
+      this.initPromise = (async () => {
+        try {
+          this.db = await this.openDatabase();
+        } catch (error) {
+          InnerLog.e('Failed to initialize IndexedDB', error);
+          this.initFailed = true;
+        }
+      })();
+    }
+
+    await this.initPromise.catch(() => {});
+    return this.db;
   }
 
   async setItem(key: string, value: string): Promise<void> {
     try {
-      this.storage.setItem(key, value);
-    } catch (e) {
-      // Storage might be full or disabled
-      console.warn('Shipbook: Failed to save to storage', e);
+      localStorage.setItem(key, value);
+    } catch (error) {
+      InnerLog.e('setItem error', error);
     }
   }
 
   async getItem(key: string): Promise<string | null> {
     try {
-      return this.storage.getItem(key);
-    } catch {
+      return localStorage.getItem(key);
+    } catch (error) {
+      InnerLog.e('getItem error', error);
       return null;
     }
   }
 
   async removeItem(key: string): Promise<void> {
     try {
-      this.storage.removeItem(key);
-    } catch {
-      // Ignore errors
+      localStorage.removeItem(key);
+    } catch (error) {
+      InnerLog.e('removeItem error', error);
     }
   }
 
   async setObj(key: string, value: object): Promise<void> {
-    await this.setItem(key, JSON.stringify(value));
+    try {
+      await this.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      InnerLog.e('setObj error', error);
+    }
   }
 
   async getObj<T = object>(key: string): Promise<T | undefined> {
-    const value = await this.getItem(key);
-    if (!value) return undefined;
     try {
+      const value = await this.getItem(key);
+      if (!value) return undefined;
       return JSON.parse(value) as T;
-    } catch {
+    } catch (error) {
+      InnerLog.e('getObj error', error);
       return undefined;
     }
   }
 
   async pushArrayObj(key: string, value: object | object[]): Promise<void> {
-    const sizeStr = this.storage.getItem(`${key}_size`);
-    let size = Number(sizeStr ?? '0');
-
-    const items = Array.isArray(value) ? value : [value];
-    
-    for (const item of items) {
-      try {
-        this.storage.setItem(`${key}_${size}`, JSON.stringify(item));
-        size++;
-      } catch {
-        // Storage quota exceeded - clear old items and retry
-        await this.clearOldItems(key, 10);
-        try {
-          this.storage.setItem(`${key}_${size}`, JSON.stringify(item));
-          size++;
-        } catch {
-          // Still failing, skip this item
-          console.warn('Shipbook: Storage quota exceeded, dropping log data');
-        }
-      }
-    }
-
     try {
-      this.storage.setItem(`${key}_size`, size.toString());
-    } catch {
-      // Ignore - size tracking failed but data may have been saved
-    }
-  }
+      const db = await this.ensureDB();
+      if (!db) return;
 
-  private async clearOldItems(key: string, count: number): Promise<void> {
-    const sizeStr = this.storage.getItem(`${key}_size`);
-    const size = Number(sizeStr ?? '0');
-    
-    const removeCount = Math.min(count, size);
-    for (let i = 0; i < removeCount; i++) {
-      this.storage.removeItem(`${key}_${i}`);
+      const items = Array.isArray(value) ? value : [value];
+
+      const tx = db.transaction([this.ARRAY_STORE], 'readwrite');
+      const store = tx.objectStore(this.ARRAY_STORE);
+
+      // Add all items without awaiting to keep transaction alive
+      for (const item of items) {
+        store.add({
+          arrayKey: key,
+          data: item
+        });
+      }
+
+      // Fire-and-forget: don't wait for transaction to complete
+      // Log errors if they occur
+      tx.onerror = () => InnerLog.e('pushArrayObj transaction error', tx.error);
+    } catch (error) {
+      InnerLog.e('pushArrayObj error', error);
     }
   }
 
   async popAllArrayObj(key: string): Promise<object[]> {
-    const sizeStr = this.storage.getItem(`${key}_size`);
-    const size = Number(sizeStr ?? '0');
+    try {
+      const db = await this.ensureDB();
+      if (!db) return [];
 
-    if (size === 0) return [];
+      // Get and delete all items in a single transaction to avoid race conditions
+      const tx = db.transaction([this.ARRAY_STORE], 'readwrite');
+      const store = tx.objectStore(this.ARRAY_STORE);
+      const index = store.index('arrayKey');
 
-    const objects: object[] = [];
-    const keysToRemove: string[] = [];
+      // Get all items
+      const items = await this.promisifyRequest(index.getAll(key));
+      const objects = items.map((item: any) => item.data);
 
-    for (let i = 0; i < size; i++) {
-      const itemKey = `${key}_${i}`;
-      const value = this.storage.getItem(itemKey);
-      if (value) {
-        try {
-          objects.push(JSON.parse(value));
-        } catch {
-          // Skip invalid items
-        }
+      // Delete all items by their primary key (id)
+      // Don't await individual deletes to keep transaction alive
+      for (const item of items) {
+        store.delete(item.id);
       }
-      keysToRemove.push(itemKey);
+
+      // Wait for transaction to complete
+      await this.waitForTx(tx);
+
+      return objects;
+    } catch (error) {
+      InnerLog.e('popAllArrayObj error', error);
+      return [];
     }
-
-    // Clean up
-    keysToRemove.forEach(k => this.storage.removeItem(k));
-    this.storage.removeItem(`${key}_size`);
-
-    return objects;
   }
 
   async arraySize(key: string): Promise<number> {
-    const sizeStr = this.storage.getItem(`${key}_size`);
-    return Number(sizeStr ?? '0');
+    try {
+      const db = await this.ensureDB();
+      if (!db) return 0;
+
+      const tx = db.transaction([this.ARRAY_STORE], 'readonly');
+      const store = tx.objectStore(this.ARRAY_STORE);
+      const index = store.index('arrayKey');
+      return await this.promisifyRequest(index.count(key));
+    } catch (error) {
+      InnerLog.e('arraySize error', error);
+      return 0;
+    }
   }
 }
 
