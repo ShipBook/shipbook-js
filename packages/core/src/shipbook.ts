@@ -59,7 +59,7 @@ export default class Shipbook {
    * Set a custom API URL (for enterprise deployments)
    */
   static setConnectionUrl(url: string): void {
-    connectionClient.BASE_URL = url;
+    connectionClient.BASE_URL = url.endsWith('/') ? url : url + '/';
   }
 
   /**

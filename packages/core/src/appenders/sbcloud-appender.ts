@@ -229,12 +229,12 @@ export default class SBCloudAppender implements BaseAppender {
           // Import Exception dynamically to avoid circular deps
           const { default: Exception } = await import('../models/exception');
           const exception = await new Exception(name, reason, stack).getObj();
-          sessionData!.logs.push(exception);
+          sessionData?.logs.push(exception);
           break;
         }
 
         default:
-          sessionData!.logs.push(data.data as BaseLog);
+          sessionData?.logs.push(data.data as BaseLog);
           break;
       }
     }

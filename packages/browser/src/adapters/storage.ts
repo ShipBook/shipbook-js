@@ -1,5 +1,4 @@
-import type { IStorage } from '@shipbook/core';
-import InnerLog from '@shipbook/core/src/utils/inner-log';
+import { type IStorage, InnerLog } from '@shipbook/core';
 
 /**
  * Browser storage adapter using IndexedDB for efficient large-scale storage
@@ -147,11 +146,15 @@ class BrowserStorage implements IStorage {
 
       const items = Array.isArray(value) ? value : [value];
 
+      // Sanitize items to ensure they can be cloned by IndexedDB
+      // JSON.parse(JSON.stringify()) removes functions, symbols, and other non-cloneable properties
+      const sanitizedItems = JSON.parse(JSON.stringify(items));
+
       const tx = db.transaction([this.ARRAY_STORE], 'readwrite');
       const store = tx.objectStore(this.ARRAY_STORE);
 
       // Add all items without awaiting to keep transaction alive
-      for (const item of items) {
+      for (const item of sanitizedItems) {
         store.add({
           arrayKey: key,
           data: item
