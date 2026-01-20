@@ -98,10 +98,7 @@ export default class Log {
     msg: string,
     severity: Severity,
     error?: Error,
-    tag?: string,
-    func?: string,
-    file?: string,
-    line?: number
+    tag?: string
   ): void {
     const tempTag = tag ?? Log.getTagFromStack();
     if (!tempTag) return;
@@ -114,7 +111,7 @@ export default class Log {
       ? new Error().stack
       : undefined;
 
-    const message = new Message(msg, severity, tag, stackTrace, error, func, file, line);
+    const message = new Message(msg, severity, tag, stackTrace, error);
     logManager.push(message);
   }
 
@@ -147,20 +144,17 @@ export default class Log {
   message(
     msg: string,
     severity: Severity,
-    e?: Error,
-    func?: string,
-    file?: string,
-    line?: number
+    e?: Error
   ): void {
     if (SeverityUtil.value(severity) > SeverityUtil.value(this.severity)) {
       return;
     }
-    
+
     const stackTrace = SeverityUtil.value(severity) <= SeverityUtil.value(this.callStackSeverity)
       ? new Error().stack
       : undefined;
-    
-    const message = new Message(msg, severity, this.tag, stackTrace, e, func, file, line);
+
+    const message = new Message(msg, severity, this.tag, stackTrace, e);
     logManager.push(message);
   }
 }
