@@ -72,14 +72,40 @@ export default class Message extends BaseLog {
     return this.fileName.substring(start, end);
   }
 
-  private static isInternalFrame(file: string | undefined): boolean {
+  private static isInternalFrame(file: string | undefined, methodName?: string): boolean {
     if (!file) return false;
     // Skip frames from shipbook logging infrastructure
     // Matches: shipbook-js/packages/core (dev), @shipbook/core (npm), node_modules/@shipbook
-    return file.includes('shipbook-js/packages/') ||
-           file.includes('node_modules/@shipbook') ||
-           file.includes('node_modules/shipbook') ||
-           /@shipbook\/(core|browser|node|react-native)/.test(file);
+    if (file.includes('shipbook-js/packages/') ||
+        file.includes('node_modules/@shipbook') ||
+        file.includes('node_modules/shipbook') ||
+        /@shipbook\/(core|browser|node|react-native)/.test(file)) {
+      return true;
+    }
+    // Skip frames with SDK method names (Log.e, Log.w, Log.i, Log.d, Log.v, message, etc.)
+    if (methodName && /^Log\.(e|w|i|d|v)$|^message$/.test(methodName)) {
+      return true;
+    }
+    // Skip bundle.js files that might contain bundled SDK code
+    // When SDK is bundled, all SDK code is in bundle.js, so we need to skip SDK-related frames
+    if (file.endsWith('bundle.js')) {
+      // Skip if method name matches SDK patterns
+      if (methodName && (
+        /^Log\./.test(methodName) ||  // Log.e, Log.w, etc.
+        /^message$/.test(methodName) ||  // message method
+        /^Log$/.test(methodName) ||  // Log constructor
+        /^Message$/.test(methodName) ||  // Message constructor
+        /^parseStackTrace$/.test(methodName) ||  // Internal parsing
+        /^getObj$/.test(methodName) ||  // Internal method
+        /^push$/.test(methodName) ||  // logManager.push
+        /^formatMessage$/.test(methodName) ||  // Internal formatting
+        /^extractError$/.test(methodName) ||  // Internal error extraction
+        /^stringifyArg$/.test(methodName)  // Internal stringification
+      )) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private parseStackTrace(rawStackTrace?: string): void {
@@ -94,9 +120,27 @@ export default class Message extends BaseLog {
     // Convert to StackTraceElement array
     this.stackTrace = stack.map(sf => new StackTraceElement(sf));
 
+    // When bundled, SDK code is in bundle.js, so we need to skip more frames
+    // Skip additional frames that match SDK patterns (Log.message, Log.e, etc.)
+    if (!rawStackTrace) {
+      let additionalFramesSkipped = 0;
+      // Check the next few frames and skip them if they match SDK patterns
+      for (let i = 0; i < Math.min(3, stack.length); i++) {
+        const frame = stack[i];
+        if (Message.isInternalFrame(frame.file ?? undefined, frame.methodName ?? undefined)) {
+          additionalFramesSkipped++;
+        } else {
+          break; // Stop skipping once we find a non-SDK frame
+        }
+      }
+      if (additionalFramesSkipped > 0) {
+        stack = stack.slice(additionalFramesSkipped);
+      }
+    }
+
     // Find the first frame that isn't from internal logging files or ignored classes
     const frame = stack.find(f => 
-      !Message.isInternalFrame(f.file ?? undefined) && 
+      !Message.isInternalFrame(f.file ?? undefined, f.methodName ?? undefined) && 
       !Message.ignoreClasses.has(f.methodName ?? '')
     );
     
