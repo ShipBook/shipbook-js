@@ -98,6 +98,7 @@ export default class SBCloudAppender implements BaseAppender {
   private changeUser(): void {
     InnerLog.i('user changed');
     const user = this.deps.getUser();
+    InnerLog.i('user in changeUser', user);
     if (user) {
       this.saveToStorage(user);
       this.createTimer();
