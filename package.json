@@ -9,7 +9,7 @@
     "examples/node-app"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build:core && npm run build --workspaces --if-present",
     "build:core": "npm run build -w @shipbook/core",
     "build:react-native": "npm run build -w @shipbook/react-native",
     "build:browser": "npm run build -w @shipbook/browser",

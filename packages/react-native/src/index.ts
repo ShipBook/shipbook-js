@@ -1,5 +1,9 @@
-import { Shipbook, Exception } from '@shipbook/core';
+import { Shipbook, Exception, sdkConfig } from '@shipbook/core';
 import { storage, platform, eventManager, exceptionHandler } from './adapters';
+import { SDK_PLATFORM_VERSION } from './generated/version';
+
+// Set platform version (internal, not exposed to users)
+sdkConfig.sdkPlatformVersion = SDK_PLATFORM_VERSION;
 
 // Configure Shipbook with React Native adapters
 Shipbook.configure({

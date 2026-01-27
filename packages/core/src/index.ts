@@ -70,3 +70,6 @@ export { default as sessionManager } from './session-manager';
 
 // Networking
 export { connectionClient, HttpMethod } from './networking';
+
+// Internal SDK config (for platform packages only)
+export { sdkConfig } from './models/login';
