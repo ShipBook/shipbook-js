@@ -53,4 +53,10 @@ export interface IPlatform {
    * Optional - may not be available on all platforms
    */
   readonly appName?: string;
+
+  /**
+   * Raw user agent string
+   * Optional - only available on browser platform
+   */
+  readonly userAgent?: string;
 }

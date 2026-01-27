@@ -70,9 +70,13 @@ class BrowserPlatform implements IPlatform {
 
   get appName(): string {
     // Use document title or hostname
-    return typeof document !== 'undefined' 
-      ? document.title || window.location.hostname 
+    return typeof document !== 'undefined'
+      ? document.title || window.location.hostname
       : '';
+  }
+
+  get userAgent(): string {
+    return navigator.userAgent;
   }
 }
 

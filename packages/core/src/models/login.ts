@@ -29,6 +29,7 @@ export interface LoginData {
   language: string;
   isDebug?: boolean;
   user?: User;
+  userAgent?: string;
 }
 
 export interface LoginOptions {
@@ -59,6 +60,7 @@ export class Login {
   language: string;
   isDebug?: boolean;
   user?: User;
+  userAgent?: string;
 
   private storage: IStorage;
 
@@ -89,6 +91,7 @@ export class Login {
     this.language = platformAdapter.language;
     this.bundleIdentifier = platformAdapter.bundleIdentifier ?? '';
     this.appName = platformAdapter.appName ?? '';
+    this.userAgent = platformAdapter.userAgent;
   }
 
   async getObj(): Promise<Login> {
