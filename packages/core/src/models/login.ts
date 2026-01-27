@@ -12,20 +12,20 @@ const SDK_VERSION = '0.3.0';
 export interface LoginData {
   appId: string;
   appKey: string;
-  bundleIdentifier: string;
-  appName: string;
+  bundleIdentifier?: string;
+  appName?: string;
   udid: string;
   time: Date;
   deviceTime: Date;
   os: string;
   platform: string;
   osVersion: string;
-  appVersion: string;
-  appBuild: string;
+  appVersion?: string;
+  appBuild?: string;
   sdkVersion: string;
-  manufacturer: string;
-  deviceName: string;
-  deviceModel: string;
+  manufacturer?: string;
+  deviceName?: string;
+  deviceModel?: string;
   language: string;
   isDebug?: boolean;
   user?: User;
@@ -43,20 +43,20 @@ export interface LoginOptions {
 export class Login {
   appId: string;
   appKey: string;
-  bundleIdentifier: string = '';
-  appName: string = '';
+  bundleIdentifier?: string;
+  appName?: string;
   udid: string = '';
   time: Date;
   deviceTime: Date;
   os: string;
   platform: string;
   osVersion: string;
-  appVersion: string = '';
-  appBuild: string = '';
+  appVersion?: string;
+  appBuild?: string;
   sdkVersion: string = SDK_VERSION;
-  manufacturer: string = '';
-  deviceName: string = '';
-  deviceModel: string = '';
+  manufacturer?: string;
+  deviceName?: string;
+  deviceModel?: string;
   language: string;
   isDebug?: boolean;
   user?: User;
@@ -86,16 +86,16 @@ export class Login {
     this.os = platformAdapter.os;
     this.osVersion = platformAdapter.osVersion;
     this.platform = platformAdapter.platformName;
-    this.manufacturer = platformAdapter.manufacturer ?? '';
-    this.deviceModel = platformAdapter.model ?? '';
+    this.manufacturer = platformAdapter.manufacturer || undefined;
+    this.deviceModel = platformAdapter.model || undefined;
     this.language = platformAdapter.language;
-    this.bundleIdentifier = platformAdapter.bundleIdentifier ?? '';
-    this.appName = platformAdapter.appName ?? '';
+    this.bundleIdentifier = platformAdapter.bundleIdentifier || undefined;
+    this.appName = platformAdapter.appName || undefined;
     this.userAgent = platformAdapter.userAgent;
   }
 
   async getObj(): Promise<Login> {
-    if (this.udid.length === 0) {
+    if (!this.udid) {
       const uuid = await this.storage.getItem(UUID_KEY);
       if (uuid) {
         this.udid = uuid;
