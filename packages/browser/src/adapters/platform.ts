@@ -32,9 +32,9 @@ class BrowserPlatform implements IPlatform {
     return 'browser';
   }
 
-  get manufacturer(): string {
+  get manufacturer(): string | undefined {
     // Browser doesn't have manufacturer info
-    return 'unknown';
+    return undefined;
   }
 
   get model(): string {

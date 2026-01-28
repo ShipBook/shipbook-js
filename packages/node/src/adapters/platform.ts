@@ -17,15 +17,15 @@ class NodePlatform implements IPlatform {
     return 'node';
   }
 
-  get manufacturer(): string {
+  get manufacturer(): string | undefined {
     // Node.js doesn't have manufacturer info
-    return 'unknown';
+    return undefined;
   }
 
-  get model(): string {
+  get model(): string | undefined {
     // Return CPU model as "model"
     const cpus = os.cpus();
-    return cpus.length > 0 ? cpus[0].model : 'unknown';
+    return cpus.length > 0 ? cpus[0].model : undefined;
   }
 
   get language(): string {
@@ -36,9 +36,9 @@ class NodePlatform implements IPlatform {
       || 'en';
   }
 
-  get orientation(): string {
+  get orientation(): string | undefined {
     // Not applicable for Node.js
-    return 'unknown';
+    return undefined;
   }
 
   get bundleIdentifier(): string {
