@@ -1,8 +1,4 @@
-export interface AuthTokens {
-  token: string;
-  expiresIn: number;  // seconds
-  refreshToken: string;
-}
+import { InnerLog } from '@shipbook/core';
 
 export interface AuthManagerDeps {
   sendRequest: (url: string, body: object, method: string) => Promise<Response>;
@@ -10,44 +6,56 @@ export interface AuthManagerDeps {
 
 export class AuthManager {
   private token?: string;
-  private refreshToken?: string;
   private expiresAt?: Date;
   private refreshTimer?: ReturnType<typeof setTimeout>;
+  private appId?: string;
+  private appKey?: string;
 
   constructor(private deps: AuthManagerDeps) {}
 
   async login(appId: string, appKey: string): Promise<boolean> {
-    console.log('[Shipbook] Attempting login to auth/loginSdkServer');
+    // Store credentials for re-login
+    this.appId = appId;
+    this.appKey = appKey;
+
+    return this.doLogin();
+  }
+
+  private async doLogin(): Promise<boolean> {
+    InnerLog.i('Attempting login to auth/loginSdkServer');
     try {
       const response = await this.deps.sendRequest(
         'auth/loginSdkServer',
-        { appId, appKey },
+        { appId: this.appId, appKey: this.appKey },
         'POST'
       );
 
       if (!response.ok) {
-        console.warn('[Shipbook] Auth failed:', await response.text());
+        InnerLog.e('Auth failed:', await response.text());
         return false;
       }
 
-      const data: AuthTokens = await response.json();
-      console.log('[Shipbook] Auth succeeded, token expires in', data.expiresIn, 'seconds');
-      this.setTokens(data);
+      const data: { token: string } = await response.json();
+      this.setToken(data.token);
       return true;
     } catch (error) {
-      console.warn('[Shipbook] Auth error:', error);
+      InnerLog.e('Auth error:', error);
       return false;
     }
   }
 
-  private setTokens(data: AuthTokens): void {
-    this.token = data.token;
-    this.refreshToken = data.refreshToken;
-    this.expiresAt = new Date(Date.now() + data.expiresIn * 1000);
+  private setToken(token: string): void {
+    this.token = token;
 
-    // Schedule refresh before expiry (80% of lifetime)
-    const refreshIn = data.expiresIn * 0.8 * 1000;
-    this.scheduleRefresh(refreshIn);
+    // Decode JWT to extract expiration
+    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+    this.expiresAt = new Date(payload.exp * 1000);
+
+    const expiresIn = Math.floor((this.expiresAt.getTime() - Date.now()) / 1000);
+    InnerLog.i('Auth succeeded, token expires in', expiresIn, 'seconds');
+
+    // Schedule re-login at 80% of token lifetime
+    this.scheduleRefresh(expiresIn * 0.8 * 1000);
   }
 
   private scheduleRefresh(ms: number): void {
@@ -56,33 +64,8 @@ export class AuthManager {
     }
 
     this.refreshTimer = setTimeout(() => {
-      this.refresh();
+      this.doLogin();
     }, ms);
-  }
-
-  private async refresh(): Promise<void> {
-    if (!this.refreshToken) {
-      console.error('[Shipbook] No refresh token available');
-      return;
-    }
-
-    try {
-      const response = await this.deps.sendRequest(
-        'auth/refresh',
-        { refreshToken: this.refreshToken },
-        'POST'
-      );
-
-      if (!response.ok) {
-        console.error('[Shipbook] Token refresh failed:', await response.text());
-        return;
-      }
-
-      const data: AuthTokens = await response.json();
-      this.setTokens(data);
-    } catch (error) {
-      console.error('[Shipbook] Token refresh error:', error);
-    }
   }
 
   getToken(): string | undefined {

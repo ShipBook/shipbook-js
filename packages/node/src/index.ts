@@ -1,4 +1,4 @@
-import { Shipbook as CoreShipbook, Log, logManager, connectionClient, HttpMethod, appenderFactory } from '@shipbook/core';
+import { Shipbook as CoreShipbook, Log, logManager, connectionClient, HttpMethod, appenderFactory, InnerLog } from '@shipbook/core';
 import { storage, platform, eventManager, exceptionHandler } from './adapters';
 import { createExpressMiddleware } from './middleware/express';
 import { createNestInterceptor } from './middleware/nestjs';
@@ -57,7 +57,7 @@ class ShipbookNode {
     // Login (don't block if fails - SDK should never prevent app from running)
     const loginSuccess = await this.authManager.login(appId, appKey);
     if (!loginSuccess) {
-      console.warn('[Shipbook] Auth failed - logs will be buffered until auth succeeds');
+      InnerLog.w('Auth failed - logs will be buffered until auth succeeds');
     }
 
     // Initialize appender (works even without auth - buffers logs)
