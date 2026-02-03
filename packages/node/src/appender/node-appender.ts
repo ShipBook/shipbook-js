@@ -5,7 +5,7 @@ import * as os from 'os';
 
 interface StoredSession {
   sessionId: string;
-  user?: User;
+  userInfo?: User;
   metadata?: Record<string, unknown>;
   time: string;
   platform: string;
@@ -33,7 +33,7 @@ interface IngestPayload {
 
 interface SessionBatch {
   sessionId: string;
-  user?: User;
+  userInfo?: User;
   metadata: Record<string, unknown>;
   startTime: Date;
   logs: BaseLog[];
@@ -69,7 +69,7 @@ export class NodeAppender implements BaseAppender {
     if (!batch) {
       batch = {
         sessionId,
-        user: ctx?.user,
+        userInfo: ctx?.user,
         metadata: ctx?.metadata || { type: 'background' },
         startTime: new Date(),
         logs: []
@@ -78,8 +78,8 @@ export class NodeAppender implements BaseAppender {
     }
 
     // Update user info if it changed (user might login after session started)
-    if (ctx?.user && !batch.user) {
-      batch.user = ctx.user;
+    if (ctx?.user && !batch.userInfo) {
+      batch.userInfo = ctx.user;
     }
 
     // Attach traceId to the log (only for HTTP requests)
@@ -166,7 +166,7 @@ export class NodeAppender implements BaseAppender {
       if (batch.logs.length === 1) {
         await this.deps.storage.setObj(`session_meta_${sessionId}`, {
           sessionId: batch.sessionId,
-          user: batch.user,
+          userInfo: batch.userInfo,
           metadata: batch.metadata,
           time: batch.startTime.toISOString()
         });
@@ -192,7 +192,7 @@ export class NodeAppender implements BaseAppender {
       for (const sessionId of sessionList) {
         const meta = await this.deps.storage.getObj<{
           sessionId: string;
-          user?: User;
+          userInfo?: User;
           metadata: Record<string, unknown>;
           time: string;
         }>(`session_meta_${sessionId}`);
@@ -202,7 +202,7 @@ export class NodeAppender implements BaseAppender {
         if (meta) {
           this.sessionBatches.set(sessionId, {
             sessionId: meta.sessionId,
-            user: meta.user,
+            userInfo: meta.userInfo,
             metadata: meta.metadata,
             startTime: new Date(meta.time),
             logs: logsData.map(l => l.data)
@@ -244,7 +244,7 @@ export class NodeAppender implements BaseAppender {
       const sessionNodeInfo = this.getNodeSessionInfo(batch.sessionId);
       sessions.push({
         sessionId: batch.sessionId,
-        user: batch.user,
+        userInfo: batch.userInfo,
         metadata: batch.metadata,
         time: batch.startTime.toISOString(),
         platform: 'node',
