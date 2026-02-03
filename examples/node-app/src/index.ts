@@ -74,8 +74,14 @@ async function main() {
   console.log('\n=== Example completed ===');
   console.log('Replace APP_ID and APP_KEY with your Shipbook credentials.');
 
-  // Give time for logs to be sent
+  // Give time for logs to be sent, then exit (auth refresh timer would otherwise keep process alive)
   await new Promise(resolve => setTimeout(resolve, 2000));
+  await Shipbook.shutdown();
+  process.exit(0);
 }
+
+process.on('SIGINT', () => {
+  Shipbook.shutdown().then(() => process.exit(0));
+});
 
 main().catch(console.error);

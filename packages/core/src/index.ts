@@ -38,7 +38,8 @@ export type {
   RootResponse,
   Login,
   LoginData,
-  LoginOptions
+  LoginOptions,
+  RequestContext
 } from './models';
 
 // Utilities
@@ -63,6 +64,7 @@ export type {
 export type { BaseAppender } from './appenders';
 export { ConsoleAppender, SBCloudAppender } from './appenders';
 export type { SBCloudAppenderDeps } from './appenders';
+export { default as appenderFactory } from './appenders/appender-factory';
 
 // Managers (for advanced use)
 export { default as logManager } from './log-manager';
