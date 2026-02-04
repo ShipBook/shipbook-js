@@ -1,6 +1,8 @@
-import type { BaseAppender, BaseLog, User, IStorage, ConfigResponse } from '@shipbook/core';
-import { Severity, SeverityUtil, InnerLog } from '@shipbook/core';
+import type { BaseAppender, BaseLog, User, ConfigResponse } from '@shipbook/core';
+import { Severity, SeverityUtil, InnerLog, connectionClient, HttpMethod } from '@shipbook/core';
 import { requestContext } from '../context/request-context';
+import { storage } from '../adapters/storage';
+import { authManager } from '../auth/auth-manager';
 import * as os from 'os';
 
 interface StoredSession {
@@ -39,13 +41,6 @@ interface SessionBatch {
   logs: BaseLog[];
 }
 
-export interface NodeAppenderDeps {
-  storage: IStorage;
-  getToken: () => string | undefined;
-  sendRequest: (url: string, body: object, method: string, headers?: Record<string, string>) => Promise<Response>;
-  appVersion?: string;  // Optional - the version of the user's application (sent in ingest payload)
-}
-
 export class NodeAppender implements BaseAppender {
   name = 'NodeAppender';
 
@@ -55,7 +50,7 @@ export class NodeAppender implements BaseAppender {
   private flushSeverity = Severity.Verbose;
   private flushSize = 1000;
 
-  constructor(private deps: NodeAppenderDeps) {
+  constructor(private appVersion?: string) {
     this.restoreFromStorage();
   }
 
@@ -115,7 +110,7 @@ export class NodeAppender implements BaseAppender {
         version: process.version
       },
       appInfo: {
-        version: this.deps.appVersion
+        version: this.appVersion
       },
       sdkInfo: {
         version: '1.0.0'  // TODO: Get from package.json
@@ -157,14 +152,14 @@ export class NodeAppender implements BaseAppender {
 
       // Use pushArrayObj to append incrementally (not rewrite everything)
       const storageKey = `session_${sessionId}`;
-      await this.deps.storage.pushArrayObj(storageKey, {
+      await storage.pushArrayObj(storageKey, {
         type: 'log',
         data: log
       });
 
       // Also store session metadata (only once per session)
       if (batch.logs.length === 1) {
-        await this.deps.storage.setObj(`session_meta_${sessionId}`, {
+        await storage.setObj(`session_meta_${sessionId}`, {
           sessionId: batch.sessionId,
           userInfo: batch.userInfo,
           metadata: batch.metadata,
@@ -172,10 +167,10 @@ export class NodeAppender implements BaseAppender {
         });
 
         // Track session in list
-        const sessionList = await this.deps.storage.getObj<string[]>('session_list') || [];
+        const sessionList = await storage.getObj<string[]>('session_list') || [];
         if (!sessionList.includes(sessionId)) {
           sessionList.push(sessionId);
-          await this.deps.storage.setObj('session_list', sessionList);
+          await storage.setObj('session_list', sessionList);
         }
       }
     } catch (error) {
@@ -186,18 +181,18 @@ export class NodeAppender implements BaseAppender {
   private async restoreFromStorage(): Promise<void> {
     try {
       // Find all session metadata keys
-      const sessionList = await this.deps.storage.getObj<string[]>('session_list');
+      const sessionList = await storage.getObj<string[]>('session_list');
       if (!sessionList?.length) return;
 
       for (const sessionId of sessionList) {
-        const meta = await this.deps.storage.getObj<{
+        const meta = await storage.getObj<{
           sessionId: string;
           userInfo?: User;
           metadata: Record<string, unknown>;
           time: string;
         }>(`session_meta_${sessionId}`);
 
-        const logsData = await this.deps.storage.popAllArrayObj(`session_${sessionId}`) as Array<{ type: string; data: BaseLog }>;
+        const logsData = await storage.popAllArrayObj(`session_${sessionId}`) as Array<{ type: string; data: BaseLog }>;
 
         if (meta) {
           this.sessionBatches.set(sessionId, {
@@ -210,10 +205,10 @@ export class NodeAppender implements BaseAppender {
         }
 
         // Clean up
-        await this.deps.storage.removeItem(`session_meta_${sessionId}`);
+        await storage.removeItem(`session_meta_${sessionId}`);
       }
 
-      await this.deps.storage.removeItem('session_list');
+      await storage.removeItem('session_list');
 
       // If we restored data, trigger a send
       if (this.sessionBatches.size > 0) {
@@ -226,7 +221,7 @@ export class NodeAppender implements BaseAppender {
 
   private async send(): Promise<void> {
     InnerLog.d('send() called');
-    const token = this.deps.getToken();
+    const token = authManager.getToken();
     if (!token) {
       InnerLog.e('No auth token, cannot send logs');
       return;
@@ -274,17 +269,16 @@ export class NodeAppender implements BaseAppender {
 
     // Clear storage
     try {
-      await this.deps.storage.removeItem('session_list');
+      await storage.removeItem('session_list');
     } catch {
       // Ignore storage errors
     }
 
     try {
-      const response = await this.deps.sendRequest(
+      const response = await connectionClient.request(
         'sessions/ingest',
         payload,
-        'POST',
-        { 'Authorization': `Bearer ${token}` }
+        HttpMethod.POST
       );
 
       if (response.ok) {

@@ -1,9 +1,9 @@
-import { Shipbook as CoreShipbook, Log, logManager, connectionClient, HttpMethod, appenderFactory, InnerLog } from '@shipbook/core';
+import { Shipbook as CoreShipbook, Log, logManager, appenderFactory, InnerLog, connectionClient } from '@shipbook/core';
 import { storage, platform, eventManager, exceptionHandler } from './adapters';
 import { createExpressMiddleware } from './middleware/express';
 import { createNestInterceptor } from './middleware/nestjs';
 import { NodeAppender } from './appender/node-appender';
-import { AuthManager } from './auth/auth-manager';
+import { authManager } from './auth/auth-manager';
 import { requestContext } from './context/request-context';
 
 // Node-specific config - console appender + NodeAppender (no SBCloudAppender)
@@ -35,7 +35,6 @@ const nodeConfig = {
 
 class ShipbookNode {
   private appender?: NodeAppender;
-  private authManager?: AuthManager;
 
   constructor() {
     // Configure core with Node.js adapters
@@ -48,51 +47,26 @@ class ShipbookNode {
   }
 
   async start(appId: string, appKey: string, appVersion?: string): Promise<string | undefined> {
-    // Initialize auth manager
-    this.authManager = new AuthManager({
-      sendRequest: (url, body, method) =>
-        connectionClient.request(url, body, method as HttpMethod)
+    // Configure connectionClient with auth functions
+    connectionClient.configure({
+      getToken: () => authManager.getToken(),
+      refreshToken: () => authManager.login(appId, appKey)
     });
 
     // Login (don't block if fails - SDK should never prevent app from running)
-    const loginSuccess = await this.authManager.login(appId, appKey);
+    const loginSuccess = await authManager.login(appId, appKey);
     if (!loginSuccess) {
       InnerLog.w('Auth failed - logs will be buffered until auth succeeds');
     }
 
     // Initialize appender (works even without auth - buffers logs)
-    this.appender = new NodeAppender({
-      storage,
-      getToken: () => this.authManager?.getToken(),
-      appVersion,
-      sendRequest: (url, body, method, headers) => {
-        // Ensure proper URL construction with slash
-        const baseUrl = connectionClient.BASE_URL.endsWith('/')
-          ? connectionClient.BASE_URL
-          : connectionClient.BASE_URL + '/';
-        return fetch(baseUrl + url, {
-          method,
-          headers: {
-            'Content-Type': 'application/json',
-            ...headers
-          },
-          body: JSON.stringify(body)
-        });
-      }
-    });
+    this.appender = new NodeAppender(appVersion);
 
     // Register NodeAppender with the factory so config() can create the logger for it
     appenderFactory.registerAppender('NodeAppender', this.appender);
 
     // Configure log manager with Node-specific config (no SBCloudAppender)
-    // This will create console appender and NodeAppender (from our registered instance)
-    // and set up loggers to route logs to both
     logManager.config(nodeConfig);
-
-    // Note: We don't call CoreShipbook.start() because:
-    // 1. It sets up SBCloudAppender which conflicts with NodeAppender
-    // 2. We handle auth ourselves via AuthManager
-    // 3. Node doesn't need the browser/mobile session flow
 
     return undefined;
   }
@@ -101,7 +75,6 @@ class ShipbookNode {
     return CoreShipbook.getLogger(tag);
   }
 
-  // Delegate other methods to core
   enableInnerLog(enable: boolean): void {
     CoreShipbook.enableInnerLog(enable);
   }
@@ -159,7 +132,7 @@ class ShipbookNode {
   // Graceful shutdown
   async shutdown(): Promise<void> {
     this.appender?.flush();
-    this.authManager?.destroy();
+    authManager.destroy();
   }
 }
 
