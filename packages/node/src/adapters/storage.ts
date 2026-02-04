@@ -175,6 +175,20 @@ class NodeStorage implements IStorage {
   isFileSystemEnabled(): boolean {
     return this.fsEnabled;
   }
+
+  /**
+   * Clear all in-memory storage
+   */
+  clear(): void {
+    this.memoryStorage.clear();
+  }
+
+  /**
+   * Disable filesystem storage (for testing)
+   */
+  setMemoryOnly(enabled: boolean): void {
+    this.fsEnabled = !enabled;
+  }
 }
 
 export const storage = new NodeStorage();
