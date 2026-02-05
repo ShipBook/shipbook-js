@@ -20,7 +20,7 @@ const log = Shipbook.getLogger('BackgroundJobExample');
 // Simulated email queue processor
 async function processEmailQueue() {
   // Wrap the job for organized logging
-  await Shipbook.runInContext({ jobId: 'email-queue' }, async () => {
+  await Shipbook.runInContext({ jobName: 'email-queue' }, async () => {
     const emailLog = Shipbook.getLogger('EmailProcessor');
 
     emailLog.i('Processing email queue');
@@ -45,7 +45,7 @@ async function processEmailQueue() {
 // Simulated data cleanup job
 async function runDataCleanup() {
   await Shipbook.runInContext(
-    { jobId: 'data-cleanup', metadata: { priority: 'low' } },
+    { jobName: 'data-cleanup', metadata: { priority: 'low' } },
     async () => {
       const cleanupLog = Shipbook.getLogger('DataCleanup');
 
@@ -62,7 +62,7 @@ async function runDataCleanup() {
 
 // Simulated report generation
 async function generateDailyReport() {
-  await Shipbook.runInContext({ jobId: 'daily-report' }, async () => {
+  await Shipbook.runInContext({ jobName: 'daily-report' }, async () => {
     const reportLog = Shipbook.getLogger('ReportGenerator');
 
     reportLog.i('Generating daily report');

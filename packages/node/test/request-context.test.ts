@@ -64,33 +64,35 @@ describe('RequestContextManager', () => {
   });
 
   describe('runJob()', () => {
-    it('should create context for background jobs', () => {
-      requestContext.runJob({ jobId: 'email-queue' }, () => {
+    it('should create context for background jobs with unique session ID', () => {
+      requestContext.runJob({ jobName: 'email-queue' }, () => {
         const retrieved = requestContext.get();
-        expect(retrieved?.sessionId).toBe('job_email-queue');
+        // Session ID should be a UUID
+        expect(retrieved?.sessionId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
         expect(retrieved?.traceId).toBeUndefined();
-        expect(retrieved?.metadata?.type).toBe('background_job');
-        expect(retrieved?.metadata?.jobId).toBe('email-queue');
+        expect(retrieved?.isBackground).toBe(true);
+        expect(retrieved?.jobName).toBe('email-queue');
       });
     });
 
     it('should support async functions', async () => {
-      const result = await requestContext.runJob({ jobId: 'async-job' }, async () => {
+      const result = await requestContext.runJob({ jobName: 'async-job' }, async () => {
         await new Promise(resolve => setTimeout(resolve, 10));
         return requestContext.get()?.sessionId;
       });
 
-      expect(result).toBe('job_async-job');
+      // Session ID should be a UUID
+      expect(result).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
     });
 
-    it('should merge custom metadata', () => {
+    it('should pass custom metadata', () => {
       requestContext.runJob(
-        { jobId: 'test', metadata: { priority: 'high', queue: 'default' } },
+        { jobName: 'test', metadata: { priority: 'high', queue: 'default' } },
         () => {
           const retrieved = requestContext.get();
           expect(retrieved?.metadata?.priority).toBe('high');
           expect(retrieved?.metadata?.queue).toBe('default');
-          expect(retrieved?.metadata?.type).toBe('background_job');
+          expect(retrieved?.jobName).toBe('test');
         }
       );
     });

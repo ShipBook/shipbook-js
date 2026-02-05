@@ -129,6 +129,37 @@ export const handler = async (event: any) => {
 };
 ```
 
+## Background Jobs
+
+Use `runInContext` to group logs from background jobs into separate sessions. Each job run gets a unique session ID.
+
+```typescript
+import Shipbook from '@shipbook/node';
+
+// Process email queue with its own session
+await Shipbook.runInContext({ jobName: 'email-queue' }, async () => {
+  const log = Shipbook.getLogger('EmailProcessor');
+
+  log.info('Processing email queue');
+  // ... process emails ...
+  log.info('Email queue completed', { processed: 100 });
+});
+
+// Data cleanup job with custom metadata
+await Shipbook.runInContext(
+  { jobName: 'data-cleanup', metadata: { priority: 'low' } },
+  async () => {
+    const log = Shipbook.getLogger('DataCleanup');
+
+    log.info('Starting cleanup');
+    // ... cleanup logic ...
+    log.info('Cleanup completed');
+  }
+);
+```
+
+Each `runInContext` call creates a unique session, with the job name stored in the session metadata for filtering in the Shipbook console.
+
 ## Storage Location
 
 Logs are persisted to `~/.shipbook/` by default. This ensures logs are not lost if the process crashes or loses connectivity.

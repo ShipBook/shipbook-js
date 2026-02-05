@@ -239,11 +239,6 @@ export class NodeAppender implements BaseAppender {
 
     const payload = { sessions };
 
-    // Debug: log the payload structure
-    InnerLog.d('Payload type: ' + typeof payload);
-    InnerLog.d('Payload sessions count: ' + payload.sessions.length);
-    InnerLog.d('First session logs count: ' + payload.sessions[0]?.logs?.length);
-
     // Clear batches before sending
     this.sessionBatches.clear();
 

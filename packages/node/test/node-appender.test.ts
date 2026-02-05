@@ -36,9 +36,12 @@ describe('NodeAppender', () => {
       const log = createLog();
       await appender.push(log);
 
-      const today = new Date().toISOString().split('T')[0];
-      const meta = await storage.getObj(`session_meta_background_${today}`);
-      expect(meta).toBeDefined();
+      // Background session uses a UUID (not date-based)
+      const sessionList = await storage.getObj<string[]>('session_list');
+      expect(sessionList).toBeDefined();
+      expect(sessionList!.length).toBe(1);
+      // Session ID should be a UUID format
+      expect(sessionList![0]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     });
 
     it('should use sessionId from context', async () => {
@@ -112,17 +115,6 @@ describe('NodeAppender', () => {
       await new Promise(resolve => setTimeout(resolve, 50));
 
       expect(mockRequest).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('createSessionId()', () => {
-    it('should create daily background session ID', async () => {
-      const log = createLog();
-      await appender.push(log);
-
-      const today = new Date().toISOString().split('T')[0];
-      const meta = await storage.getObj(`session_meta_background_${today}`);
-      expect(meta).toBeDefined();
     });
   });
 

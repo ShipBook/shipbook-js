@@ -122,7 +122,7 @@ class ShipbookNode {
 
   // For background jobs - wrap code to get organized session grouping
   runInContext<T>(
-    options: { jobId: string; metadata?: Record<string, unknown> },
+    options: { jobName: string; metadata?: Record<string, unknown> },
     fn: () => T | Promise<T>
   ): T | Promise<T> {
     return requestContext.runJob(options, fn);

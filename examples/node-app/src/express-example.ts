@@ -109,7 +109,7 @@ app.get('/api/health', (req, res) => {
 // Background job simulation
 async function runBackgroundJob() {
   // Wrap background jobs with runInContext for organized logging
-  await Shipbook.runInContext({ jobId: 'cleanup-job' }, async () => {
+  await Shipbook.runInContext({ jobName: 'cleanup-job' }, async () => {
     const jobLog = Shipbook.getLogger('CleanupJob');
 
     jobLog.i('Starting cleanup job');
