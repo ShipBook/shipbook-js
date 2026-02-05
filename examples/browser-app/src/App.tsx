@@ -5,6 +5,7 @@ import { Shipbook } from '@shipbook/browser';
 // Create a .env file with VITE_SHIPBOOK_APP_ID and VITE_SHIPBOOK_APP_KEY
 const APP_ID = import.meta.env.VITE_SHIPBOOK_APP_ID || 'YOUR_APP_ID_HERE';
 const APP_KEY = import.meta.env.VITE_SHIPBOOK_APP_KEY || 'YOUR_APP_KEY_HERE';
+const SHIPBOOK_URL = import.meta.env.VITE_SHIPBOOK_URL;
 
 const isCredentialsConfigured = APP_ID !== 'YOUR_APP_ID_HERE' && APP_KEY !== 'YOUR_APP_KEY_HERE';
 
@@ -39,7 +40,12 @@ function App() {
 
     // Enable inner logging for debugging
     Shipbook.enableInnerLog(true);
-    
+
+    // Set custom URL if provided
+    if (SHIPBOOK_URL) {
+      Shipbook.setConnectionUrl(SHIPBOOK_URL);
+    }
+
     // Start Shipbook
     Shipbook.start(APP_ID, APP_KEY,
       {

@@ -16,6 +16,7 @@ import Shipbook from '@shipbook/node';
 // Load credentials from environment variables (see .env.example)
 const APP_ID = process.env.SHIPBOOK_APP_ID || 'YOUR_APP_ID';
 const APP_KEY = process.env.SHIPBOOK_APP_KEY || 'YOUR_APP_KEY';
+const SHIPBOOK_URL = process.env.SHIPBOOK_URL;
 
 const app = express();
 app.use(express.json());
@@ -122,6 +123,12 @@ async function startServer() {
   console.log('Initializing Shipbook...');
   
   Shipbook.enableInnerLog(true);
+
+  // Set custom URL if provided
+  if (SHIPBOOK_URL) {
+    Shipbook.setConnectionUrl(SHIPBOOK_URL);
+  }
+
   await Shipbook.start(APP_ID, APP_KEY);
   console.log('Shipbook initialized');
 

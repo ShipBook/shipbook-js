@@ -4,12 +4,18 @@ import Shipbook from '@shipbook/node';
 // Load credentials from environment variables (see .env.example)
 const APP_ID = process.env.SHIPBOOK_APP_ID || 'YOUR_APP_ID';
 const APP_KEY = process.env.SHIPBOOK_APP_KEY || 'YOUR_APP_KEY';
+const SHIPBOOK_URL = process.env.SHIPBOOK_URL;
 
 async function main() {
   console.log('=== Shipbook Node.js Example ===\n');
 
   // Enable inner logging for debugging
   Shipbook.enableInnerLog(true);
+
+  // Set custom URL if provided
+  if (SHIPBOOK_URL) {
+    Shipbook.setConnectionUrl(SHIPBOOK_URL);
+  }
 
   // Start Shipbook
   console.log('Initializing Shipbook...');

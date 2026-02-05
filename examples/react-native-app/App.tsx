@@ -7,6 +7,7 @@ import Shipbook from '@shipbook/react-native';
 // Load credentials from environment variables (see .env.example and app.config.js)
 const APP_ID = Constants.expoConfig?.extra?.shipbookAppId || 'YOUR_APP_ID_HERE';
 const APP_KEY = Constants.expoConfig?.extra?.shipbookAppKey || 'YOUR_APP_KEY_HERE';
+const SHIPBOOK_URL = Constants.expoConfig?.extra?.shipbookUrl;
 
 let log = Shipbook.getLogger("test");
 
@@ -15,6 +16,12 @@ export default function App() {
   useEffect(() => {
     // Your code here
     console.log('entered useEffect')
+
+    // Set custom URL if provided
+    if (SHIPBOOK_URL) {
+      Shipbook.setConnectionUrl(SHIPBOOK_URL);
+    }
+
     Shipbook.start(APP_ID, APP_KEY, {
       appVersion: '1.0.1',
       appBuild: '2',
