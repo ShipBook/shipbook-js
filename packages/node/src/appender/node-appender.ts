@@ -26,6 +26,7 @@ export class NodeAppender implements BaseAppender {
   private flushSeverity = Severity.Verbose;
   private flushSize = 1000;
   private machineUdid?: string;
+  private backgroundSessionId = randomUUID();  // One session per process lifecycle
 
   constructor(private appVersion?: string) {
     this.restoreFromStorage();
@@ -45,7 +46,7 @@ export class NodeAppender implements BaseAppender {
   async push(log: BaseLog): Promise<void> {
     InnerLog.d('push() called');
     const ctx = requestContext.get();
-    const sessionId = ctx?.sessionId || this.createSessionId();
+    const sessionId = ctx?.sessionId || this.backgroundSessionId;
 
     // Get or create batch for this session
     let batch = this.sessionBatches.get(sessionId);
@@ -81,11 +82,6 @@ export class NodeAppender implements BaseAppender {
 
     // Check if we should flush
     this.scheduleFlush(log);
-  }
-
-  private createSessionId(): string {
-    const today = new Date().toISOString().split('T')[0];
-    return `background_${today}`;
   }
 
   private scheduleFlush(log: BaseLog): void {
