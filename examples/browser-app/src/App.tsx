@@ -1,12 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
 import { Shipbook } from '@shipbook/browser';
 
-// Initialize Shipbook - replace with your actual credentials
-// TODO: Replace these with your Shipbook App ID and App Key from https://app.shipbook.io
-const APP_ID = 'YOUR_APP_ID_HERE';
-const APP_KEY = 'YOUR_APP_KEY_HERE';
+// Load credentials from environment variables (see .env.example)
+// Create a .env file with VITE_SHIPBOOK_APP_ID and VITE_SHIPBOOK_APP_KEY
+const APP_ID = import.meta.env.VITE_SHIPBOOK_APP_ID || 'YOUR_APP_ID_HERE';
+const APP_KEY = import.meta.env.VITE_SHIPBOOK_APP_KEY || 'YOUR_APP_KEY_HERE';
 
-const isCredentialsConfigured = (APP_ID as string) !== 'YOUR_APP_ID_HERE' && (APP_KEY as string) !== 'YOUR_APP_KEY_HERE';
+const isCredentialsConfigured = APP_ID !== 'YOUR_APP_ID_HERE' && APP_KEY !== 'YOUR_APP_KEY_HERE';
 
 // Get a logger instance
 const log = Shipbook.getLogger('BrowserExample');
@@ -344,7 +344,7 @@ function App() {
       </div>
 
       <div style={styles.footer}>
-        {!isCredentialsConfigured && <p>Replace APP_ID and APP_KEY in App.tsx with your Shipbook credentials.</p>}
+        {!isCredentialsConfigured && <p>Set VITE_SHIPBOOK_APP_ID and VITE_SHIPBOOK_APP_KEY in .env file (see .env.example).</p>}
         <p>GUID: {Shipbook.getUUID() || 'N/A'}</p>
       </div>
     </div>

@@ -1,12 +1,12 @@
 import { StatusBar } from 'expo-status-bar';
+import Constants from 'expo-constants';
 import React, { useEffect } from 'react';
 import { Button, StyleSheet, Text, View } from 'react-native';
 import Shipbook from '@shipbook/react-native';
 
-// Initialize Shipbook - replace with your actual credentials
-// TODO: Replace these with your Shipbook App ID and App Key from https://app.shipbook.io
-const APP_ID = 'YOUR_APP_ID_HERE';
-const APP_KEY = 'YOUR_APP_KEY_HERE';
+// Load credentials from environment variables (see .env.example and app.config.js)
+const APP_ID = Constants.expoConfig?.extra?.shipbookAppId || 'YOUR_APP_ID_HERE';
+const APP_KEY = Constants.expoConfig?.extra?.shipbookAppKey || 'YOUR_APP_KEY_HERE';
 
 let log = Shipbook.getLogger("test");
 

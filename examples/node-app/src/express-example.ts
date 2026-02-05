@@ -8,13 +8,14 @@
  * - Background job logging with runInContext()
  */
 
+import 'dotenv/config';
 import express from 'express';
 import session from 'express-session';
 import Shipbook from '@shipbook/node';
 
-// Replace with your actual credentials
-const APP_ID = 'YOUR_APP_ID';
-const APP_KEY = 'YOUR_APP_KEY';
+// Load credentials from environment variables (see .env.example)
+const APP_ID = process.env.SHIPBOOK_APP_ID || 'YOUR_APP_ID';
+const APP_KEY = process.env.SHIPBOOK_APP_KEY || 'YOUR_APP_KEY';
 
 const app = express();
 app.use(express.json());

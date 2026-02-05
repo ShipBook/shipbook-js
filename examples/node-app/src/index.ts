@@ -1,8 +1,9 @@
+import 'dotenv/config';
 import Shipbook from '@shipbook/node';
 
-// Replace with your actual credentials
-const APP_ID = 'YOUR_APP_ID';
-const APP_KEY = 'YOUR_APP_KEY';
+// Load credentials from environment variables (see .env.example)
+const APP_ID = process.env.SHIPBOOK_APP_ID || 'YOUR_APP_ID';
+const APP_KEY = process.env.SHIPBOOK_APP_KEY || 'YOUR_APP_KEY';
 
 async function main() {
   console.log('=== Shipbook Node.js Example ===\n');
@@ -72,7 +73,7 @@ async function main() {
   console.log(`\n📋 Session UUID: ${Shipbook.getUUID() || 'N/A'}`);
 
   console.log('\n=== Example completed ===');
-  console.log('Replace APP_ID and APP_KEY with your Shipbook credentials.');
+  console.log('Set SHIPBOOK_APP_ID and SHIPBOOK_APP_KEY in .env file (see .env.example).');
 
   // Give time for logs to be sent, then exit (auth refresh timer would otherwise keep process alive)
   await new Promise(resolve => setTimeout(resolve, 2000));
