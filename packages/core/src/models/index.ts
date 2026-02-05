@@ -1,4 +1,5 @@
 export { default as BaseLog, LogType } from './base-log';
+export type { ThreadInfo } from './base-log';
 export { default as BaseEvent } from './base-event';
 export { default as AppEvent } from './app-event';
 export { default as ScreenEvent } from './screen-event';
@@ -15,3 +16,15 @@ export type {
 export { Login } from './login';
 export type { LoginData, LoginOptions } from './login';
 export type { RequestContext } from './request-context';
+
+export { Platform } from './session';
+
+export type {
+  Session,
+  Browser,
+  DeviceInfo,
+  VersionInfo,
+  AppVersionInfo,
+  OsInfo,
+  CellInfo
+} from './session';

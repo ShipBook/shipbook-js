@@ -10,4 +10,5 @@ export interface RequestContext {
   user?: User;             // Full user object (userId, userName, email, etc.)
   metadata: Record<string, unknown>;  // method, path, ip, etc.
   startTime: Date;
+  isBackground?: boolean;  // True for background jobs, false for HTTP requests
 }

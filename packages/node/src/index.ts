@@ -1,4 +1,8 @@
-import { Shipbook as CoreShipbook, Log, logManager, appenderFactory, InnerLog, connectionClient } from '@shipbook/core';
+import { Shipbook as CoreShipbook, Log, logManager, appenderFactory, InnerLog, connectionClient, sdkConfig } from '@shipbook/core';
+import { SDK_PLATFORM_VERSION } from './generated/version';
+
+// Set platform version (internal, not exposed to users)
+sdkConfig.sdkPlatformVersion = SDK_PLATFORM_VERSION;
 import { storage, platform, eventManager, exceptionHandler } from './adapters';
 import { createExpressMiddleware } from './middleware/express';
 import { createNestInterceptor } from './middleware/nestjs';

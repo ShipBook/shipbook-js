@@ -17,7 +17,8 @@ export class RequestContextManager {
       traceId: context.traceId,  // Only set if provided (from x-request-id header)
       user: context.user,
       metadata: context.metadata || {},
-      startTime: new Date()
+      startTime: new Date(),
+      isBackground: false  // HTTP requests are not background jobs
     };
     return this.asyncStorage.run(fullContext, fn);
   }
@@ -32,7 +33,8 @@ export class RequestContextManager {
         jobId: options.jobId,
         ...options.metadata
       },
-      startTime: new Date()
+      startTime: new Date(),
+      isBackground: true  // Background jobs are flagged for server-side filtering
     };
     return this.asyncStorage.run(context, fn);
   }

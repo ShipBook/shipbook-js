@@ -1,42 +1,18 @@
-import type { BaseAppender, BaseLog, User, ConfigResponse } from '@shipbook/core';
-import { Severity, SeverityUtil, InnerLog, connectionClient, HttpMethod } from '@shipbook/core';
+import type { BaseAppender, BaseLog, User, ConfigResponse, Session } from '@shipbook/core';
+import { Severity, SeverityUtil, InnerLog, connectionClient, HttpMethod, sdkConfig, Platform } from '@shipbook/core';
 import { requestContext } from '../context/request-context';
 import { storage } from '../adapters/storage';
 import { authManager } from '../auth/auth-manager';
+import { randomUUID } from 'crypto';
 import * as os from 'os';
 
-interface StoredSession {
-  sessionId: string;
-  userInfo?: User;
-  metadata?: Record<string, unknown>;
-  time: string;
-  platform: string;
-  deviceInfo: {
-    udid: string;
-    os: string;
-    deviceName?: string;
-  };
-  os: {
-    name: string;
-    version: string;
-  };
-  appInfo: {
-    version?: string;
-  };
-  sdkInfo: {
-    version: string;
-  };
-  logs: BaseLog[];
-}
-
-interface IngestPayload {
-  sessions: StoredSession[];
-}
+const MACHINE_UDID_KEY = 'machine_udid';
 
 interface SessionBatch {
   sessionId: string;
   userInfo?: User;
   metadata: Record<string, unknown>;
+  isBackground?: boolean;
   startTime: Date;
   logs: BaseLog[];
 }
@@ -49,9 +25,21 @@ export class NodeAppender implements BaseAppender {
   private maxTime = 3;  // seconds
   private flushSeverity = Severity.Verbose;
   private flushSize = 1000;
+  private machineUdid?: string;
 
   constructor(private appVersion?: string) {
     this.restoreFromStorage();
+    this.initMachineUdid();
+  }
+
+  private async initMachineUdid(): Promise<void> {
+    const stored = await storage.getItem(MACHINE_UDID_KEY);
+    if (stored) {
+      this.machineUdid = stored;
+    } else {
+      this.machineUdid = randomUUID();
+      await storage.setItem(MACHINE_UDID_KEY, this.machineUdid);
+    }
   }
 
   async push(log: BaseLog): Promise<void> {
@@ -62,10 +50,13 @@ export class NodeAppender implements BaseAppender {
     // Get or create batch for this session
     let batch = this.sessionBatches.get(sessionId);
     if (!batch) {
+      // Default to isBackground: true when no context (fallback background session)
+      const isBackground = ctx?.isBackground ?? true;
       batch = {
         sessionId,
         userInfo: ctx?.user,
         metadata: ctx?.metadata || { type: 'background' },
+        isBackground,
         startTime: new Date(),
         logs: []
       };
@@ -95,27 +86,6 @@ export class NodeAppender implements BaseAppender {
   private createSessionId(): string {
     const today = new Date().toISOString().split('T')[0];
     return `background_${today}`;
-  }
-
-  /** Node identity sent with every session so the server knows which host sent the logs. */
-  private getNodeSessionInfo(sessionId: string): Pick<StoredSession, 'deviceInfo' | 'os' | 'appInfo' | 'sdkInfo'> {
-    return {
-      deviceInfo: {
-        udid: `node_${sessionId}`,
-        os: 'node',
-        deviceName: os.hostname()
-      },
-      os: {
-        name: 'node',
-        version: process.version
-      },
-      appInfo: {
-        version: this.appVersion
-      },
-      sdkInfo: {
-        version: '1.0.0'  // TODO: Get from package.json
-      }
-    };
   }
 
   private scheduleFlush(log: BaseLog): void {
@@ -163,6 +133,7 @@ export class NodeAppender implements BaseAppender {
           sessionId: batch.sessionId,
           userInfo: batch.userInfo,
           metadata: batch.metadata,
+          isBackground: batch.isBackground,
           time: batch.startTime.toISOString()
         });
 
@@ -189,6 +160,7 @@ export class NodeAppender implements BaseAppender {
           sessionId: string;
           userInfo?: User;
           metadata: Record<string, unknown>;
+          isBackground?: boolean;
           time: string;
         }>(`session_meta_${sessionId}`);
 
@@ -199,6 +171,7 @@ export class NodeAppender implements BaseAppender {
             sessionId: meta.sessionId,
             userInfo: meta.userInfo,
             metadata: meta.metadata,
+            isBackground: meta.isBackground,
             startTime: new Date(meta.time),
             logs: logsData.map(l => l.data)
           });
@@ -234,19 +207,30 @@ export class NodeAppender implements BaseAppender {
     InnerLog.d('Sending ' + this.sessionBatches.size + ' sessions');
 
     // Build payload from all sessions; every session includes node identity (deviceInfo, os, appInfo).
-    const sessions: StoredSession[] = [];
+    const sessions: Session[] = [];
     for (const batch of this.sessionBatches.values()) {
-      const sessionNodeInfo = this.getNodeSessionInfo(batch.sessionId);
       sessions.push({
         sessionId: batch.sessionId,
         userInfo: batch.userInfo,
         metadata: batch.metadata,
+        isBackground: batch.isBackground,
         time: batch.startTime.toISOString(),
-        platform: 'node',
-        deviceInfo: sessionNodeInfo.deviceInfo,
-        os: sessionNodeInfo.os,
-        appInfo: sessionNodeInfo.appInfo,
-        sdkInfo: sessionNodeInfo.sdkInfo,
+        platform: Platform.NODE,
+        deviceInfo: {
+          udid: this.machineUdid || randomUUID(),
+          os: Platform.NODE,
+          deviceName: os.hostname()
+        },
+        os: {
+          name: os.platform(),
+          version: os.release()
+        },
+        appInfo: {
+          version: this.appVersion
+        },
+        sdkInfo: {
+          platformVersion: sdkConfig.sdkPlatformVersion
+        },
         logs: batch.logs
       });
     }
@@ -257,7 +241,7 @@ export class NodeAppender implements BaseAppender {
       return;
     }
 
-    const payload: IngestPayload = { sessions };
+    const payload = { sessions };
 
     // Debug: log the payload structure
     InnerLog.d('Payload type: ' + typeof payload);

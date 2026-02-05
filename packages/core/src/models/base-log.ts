@@ -5,12 +5,23 @@ export enum LogType {
   ScreenEvent = 'screenEvent'
 }
 
+/**
+ * Thread information (relevant for mobile SDKs, optional in JS).
+ */
+export interface ThreadInfo {
+  queueLabel?: string;
+  threadName: string;
+  threadId: number;
+}
+
 export default class BaseLog {
   static count = 0;
-  
+
   time: Date;
   orderId: number;
   type: LogType;
+  traceId?: string;
+  threadInfo?: ThreadInfo;
 
   constructor(type: LogType) {
     this.type = type;

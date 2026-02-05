@@ -27,7 +27,8 @@ export {
   Exception,
   StackTraceElement,
   Severity,
-  SeverityUtil
+  SeverityUtil,
+  Platform
 } from './models';
 
 export type {
@@ -39,7 +40,15 @@ export type {
   Login,
   LoginData,
   LoginOptions,
-  RequestContext
+  RequestContext,
+  Session,
+  Browser,
+  DeviceInfo,
+  VersionInfo,
+  AppVersionInfo,
+  OsInfo,
+  CellInfo,
+  ThreadInfo
 } from './models';
 
 // Utilities
