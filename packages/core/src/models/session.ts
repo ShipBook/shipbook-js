@@ -106,6 +106,7 @@ export interface Session {
   platform: Platform;
   metadata?: Record<string, unknown>;
   isBackground?: boolean;
+  jobName?: string;
   deviceInfo: DeviceInfo;
   time: string;  // ISO string, server parses as Date
   deviceTime?: string;  // ISO string, server parses as Date

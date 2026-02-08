@@ -13,6 +13,7 @@ interface SessionBatch {
   userInfo?: User;
   metadata: Record<string, unknown>;
   isBackground?: boolean;
+  jobName?: string;
   startTime: Date;
   logs: BaseLog[];
 }
@@ -58,6 +59,7 @@ export class NodeAppender implements BaseAppender {
         userInfo: ctx?.user,
         metadata: ctx?.metadata || { type: 'background' },
         isBackground,
+        jobName: ctx?.jobName,
         startTime: new Date(),
         logs: []
       };
@@ -210,6 +212,7 @@ export class NodeAppender implements BaseAppender {
         userInfo: batch.userInfo,
         metadata: batch.metadata,
         isBackground: batch.isBackground,
+        jobName: batch.jobName,
         time: batch.startTime.toISOString(),
         platform: Platform.NODE,
         deviceInfo: {
