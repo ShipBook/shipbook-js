@@ -18,6 +18,19 @@ class LogManager {
   private appenders = new Map<string, BaseAppender>();
   private loggers: Logger[] = [];
 
+  constructor() {
+    // Default console appender so logs work before start() is called.
+    // When start() calls config(), this gets replaced with the full config.
+    this.config({
+      appenders: [
+        { type: 'ConsoleAppender', name: 'console' }
+      ],
+      loggers: [
+        { name: '', severity: 'Verbose', appenderRef: 'console' }
+      ]
+    });
+  }
+
   clear(): void {
     this.appenders.forEach(appender => appender.destructor());
     InnerLog.d('called clear');

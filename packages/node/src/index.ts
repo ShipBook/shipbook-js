@@ -15,8 +15,7 @@ const nodeConfig = {
   appenders: [
     {
       type: 'ConsoleAppender',
-      name: 'console',
-      config: { pattern: '$message' }
+      name: 'console'
     },
     {
       type: 'NodeAppender',  // Will be provided via appenderFactory.registerAppender()
