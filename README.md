@@ -170,6 +170,29 @@ Shipbook.setConnectionUrl('https://your-shipbook-server.com/v1/');
 - Flushes logs on process exit signals (SIGINT, SIGTERM)
 - Set `SHIPBOOK_STORAGE_PATH` env var to customize storage location
 
+## Using Wrappers with Shipbook
+
+If you wrap Shipbook in your own logging class, the SDK will report your wrapper's filename and line number instead of the actual caller. To fix this, register your wrapper class:
+
+```typescript
+// Pass the class itself (recommended - works with minification)
+Shipbook.addWrapperClass(MyLogWrapper);
+
+// Or pass a string (for third-party internals like Winston)
+Shipbook.addWrapperClass('WinstonInternalClass');
+```
+
+The SDK will skip any stack frames from registered classes when determining the caller location.
+
+### Stack Offset
+
+For cases where `addWrapperClass` isn't sufficient (e.g., deeply nested third-party wrappers in minified code), you can set a manual stack offset:
+
+```typescript
+// Skip 1 additional stack frame beyond SDK internals
+Shipbook.setStackOffset(1);
+```
+
 ## Static Logging
 
 You can also log without creating a logger instance:

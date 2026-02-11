@@ -5,6 +5,7 @@ import { StackTraceElement } from './exception';
 
 export default class Message extends BaseLog {
   static ignoreClasses = new Set<string>();
+  static stackOffset = 0;
 
   severity: Severity;
   message: string;
@@ -64,13 +65,20 @@ export default class Message extends BaseLog {
 
     // Remove internal SDK frames:
     // 0: parseStackTrace, 1: Message constructor, 2: Log.message, 3: Log.e/w/i/d/v
-    stack.splice(0, 4);
+    stack.splice(0, 4 + Message.stackOffset);
 
     // Convert to StackTraceElement array
     this.stackTrace = stack.map(sf => new StackTraceElement(sf));
 
     // Find the first frame that isn't from ignored classes
-    const frame = stack.find(f => !Message.ignoreClasses.has(f.methodName ?? ''));
+    const frame = stack.find(f => {
+      const methodName = f.methodName;
+      if (!methodName) return true;
+      for (const cls of Message.ignoreClasses) {
+        if (methodName === cls || methodName.startsWith(cls + '.')) return false;
+      }
+      return true;
+    });
     
     if (frame) {
       this.function = frame.methodName ?? '';

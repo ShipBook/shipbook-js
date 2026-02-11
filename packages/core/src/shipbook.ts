@@ -5,6 +5,7 @@ import ScreenEvent from './models/screen-event';
 import { connectionClient } from './networking';
 import sessionManager from './session-manager';
 import type { PlatformAdapters } from './interfaces';
+import Message from './models/message';
 import type { LoginOptions } from './models/login';
 
 /**
@@ -108,6 +109,25 @@ export default class Shipbook {
   static screen(name: string): void {
     const event = new ScreenEvent(name);
     logManager.push(event);
+  }
+
+  /**
+   * Register a wrapper class so the SDK skips it when determining the caller.
+   * Matches any method on the class (e.g., Logger matches Logger.log, Logger.error, etc.)
+   * Pass the class itself for minification safety, or a string for third-party internals.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+  static addWrapperClass(cls: Function | string): void {
+    const name = typeof cls === 'string' ? cls : cls.name;
+    Message.ignoreClasses.add(name);
+  }
+
+  /**
+   * Set extra stack frames to skip beyond the SDK internals.
+   * Use this for third-party wrappers in minified code where you can't pass the class.
+   */
+  static setStackOffset(offset: number): void {
+    Message.stackOffset = offset;
   }
 
   /**

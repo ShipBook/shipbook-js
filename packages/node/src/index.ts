@@ -113,6 +113,15 @@ class ShipbookNode {
     return CoreShipbook.getUUID();
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+  addWrapperClass(cls: Function | string): void {
+    CoreShipbook.addWrapperClass(cls);
+  }
+
+  setStackOffset(offset: number): void {
+    CoreShipbook.setStackOffset(offset);
+  }
+
   // Express middleware factory
   expressMiddleware = createExpressMiddleware;
 
