@@ -50,6 +50,11 @@ class ShipbookNode {
   }
 
   async start(appId: string, appKey: string, appVersion?: string): Promise<string | undefined> {
+    // Initialize appender immediately so logs are buffered from the start
+    this.appender = new NodeAppender(appVersion);
+    appenderFactory.registerAppender('NodeAppender', this.appender);
+    logManager.config(nodeConfig);
+
     // Configure connectionClient with auth functions
     connectionClient.configure({
       getToken: () => authManager.getToken(),
@@ -61,15 +66,6 @@ class ShipbookNode {
     if (!loginSuccess) {
       InnerLog.w('Auth failed - logs will be buffered until auth succeeds');
     }
-
-    // Initialize appender (works even without auth - buffers logs)
-    this.appender = new NodeAppender(appVersion);
-
-    // Register NodeAppender with the factory so config() can create the logger for it
-    appenderFactory.registerAppender('NodeAppender', this.appender);
-
-    // Configure log manager with Node-specific config (no SBCloudAppender)
-    logManager.config(nodeConfig);
 
     return undefined;
   }
