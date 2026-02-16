@@ -8,6 +8,7 @@ export default defineConfig({
     alias: {
       // Point to source files during development for better ES module support
       '@shipbook/browser': path.resolve(__dirname, '../../packages/browser/src/index.ts'),
+      '@shipbook/client': path.resolve(__dirname, '../../packages/client/src/index.ts'),
       '@shipbook/core': path.resolve(__dirname, '../../packages/core/src/index.ts'),
     },
   },
@@ -19,6 +20,6 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ['react', 'react-dom'],
-    exclude: ['@shipbook/browser', '@shipbook/core'],
+    exclude: ['@shipbook/browser', '@shipbook/client', '@shipbook/core'],
   },
 });

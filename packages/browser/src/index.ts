@@ -1,16 +1,14 @@
-import { Shipbook, sdkConfig } from '@shipbook/core';
+import { Shipbook } from '@shipbook/client';
 import { storage, platform, eventManager, exceptionHandler } from './adapters';
-import { SDK_PLATFORM_VERSION } from './generated/version';
-
-// Set platform version (internal, not exposed to users)
-sdkConfig.sdkPlatformVersion = SDK_PLATFORM_VERSION;
+import { PLATFORM_VERSION } from './generated/version';
 
 // Configure Shipbook with Browser adapters
-Shipbook.configure({
+Shipbook.init({
   storage,
   platform,
   eventManager,
-  exceptionHandler
+  exceptionHandler,
+  platformVersion: PLATFORM_VERSION
 });
 
 // Re-export Shipbook as default and named export

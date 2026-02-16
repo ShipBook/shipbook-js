@@ -15,10 +15,7 @@ class ConnectionClient {
   private getToken: () => string | undefined = () => undefined;
   private refreshTokenFn: () => Promise<boolean> = async () => false;
 
-  /**
-   * Configure the connection client with auth functions
-   */
-  configure(options: {
+  setDeps(options: {
     getToken: () => string | undefined;
     refreshToken: () => Promise<boolean>;
   }): void {

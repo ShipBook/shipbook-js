@@ -60,7 +60,6 @@ export interface VersionInfo {
   version?: string;
   versionCode?: number;
   build?: string;
-  platformVersion?: string;
 }
 
 /**

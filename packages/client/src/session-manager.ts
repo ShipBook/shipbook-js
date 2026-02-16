@@ -1,18 +1,28 @@
-import { CONNECTED, USER_CHANGE, eventEmitter } from './utils/event-emitter';
-import InnerLog from './utils/inner-log';
-import logManager from './log-manager';
-import { Login, LoginOptions } from './models/login';
-import type User from './models/user';
-import type { ConfigResponse } from './models/config-response';
-import type { LoginResponse, RefreshTokenResponse } from './models/api-responses';
-import { connectionClient, HttpMethod } from './networking';
-import type { IStorage } from './interfaces/storage';
-import type { IPlatform } from './interfaces/platform';
-import type { IEventManager } from './interfaces/event-manager';
-import type { IExceptionHandler } from './interfaces/exception-handler';
-import appenderFactory from './appenders/appender-factory';
-import Exception from './models/exception';
-import AppEvent from './models/app-event';
+import {
+  CONNECTED,
+  USER_CHANGE,
+  eventEmitter,
+  InnerLog,
+  logManager,
+  connectionClient,
+  HttpMethod,
+  appenderFactory,
+  Exception,
+  AppEvent,
+  CORE_VERSION
+} from '@shipbook/core';
+import type {
+  User,
+  ConfigResponse,
+  IStorage,
+  IPlatform,
+  IEventManager,
+  IExceptionHandler
+} from '@shipbook/core';
+import { Login } from './models';
+import type { LoginOptions, LoginResponse, RefreshTokenResponse } from './models';
+import { SBCloudAppender } from './appenders';
+import { CLIENT_VERSION } from './generated';
 
 const defaultConfig: ConfigResponse = {
   appenders: [
@@ -53,6 +63,7 @@ class SessionManager {
 
   private isInLoginRequest = false;
   private configured = false;
+  private sdkVersion!: string;
 
   // Platform adapters
   private storage!: IStorage;
@@ -72,42 +83,48 @@ class SessionManager {
   }
 
   /**
-   * Configure the session manager with platform adapters
+   * Initialize the session manager with platform adapters and register SBCloudAppender.
    */
-  configure(options: {
+  init(options: {
     storage: IStorage;
     platform: IPlatform;
     eventManager: IEventManager;
     exceptionHandler: IExceptionHandler;
+    platformVersion?: string;
   }): void {
     this.storage = options.storage;
     this.platform = options.platform;
     this.eventManager = options.eventManager;
     this.exceptionHandler = options.exceptionHandler;
 
-    // Configure connection client
-    connectionClient.configure({
+    // Build concatenated SDK version string: "core:1.0.5/client:1.0.0/browser:1.0.4"
+    const parts = [`core:${CORE_VERSION}`, `client:${CLIENT_VERSION}`];
+    if (options.platformVersion) parts.push(`${this.platform.platformName}:${options.platformVersion}`);
+    this.sdkVersion = parts.join('/');
+
+    connectionClient.setDeps({
       getToken: () => this.token,
       refreshToken: () => this.refreshToken()
     });
 
-    // Configure appender factory with dependencies
-    appenderFactory.configureSBCloudDeps({
+    // Set deps and register class so the factory can create it during config()
+    SBCloudAppender.setDeps({
       storage: this.storage,
       eventManager: this.eventManager,
       getToken: () => this.token,
       getLoginObj: () => this.loginObj,
       getUser: () => this.user,
-      sendRequest: (url, body, method) => 
+      sendRequest: (url, body, method) =>
         connectionClient.request(url, body, method as HttpMethod)
     });
+    appenderFactory.register('SBCloudAppender', SBCloudAppender);
 
     this.configured = true;
   }
 
   async login(
-    appId: string, 
-    appKey: string, 
+    appId: string,
+    appKey: string,
     options?: LoginOptions
   ): Promise<string | undefined> {
     if (!this.configured) {
@@ -120,8 +137,8 @@ class SessionManager {
     this.readConfig(config);
     this.appId = appId;
     this.appKey = appKey;
-    this.loginObj = new Login(appId, appKey, this.platform, this.storage, options);
-    
+    this.loginObj = new Login(appId, appKey, this.platform, this.storage, this.sdkVersion, options);
+
     return this.innerLogin();
   }
 
@@ -130,7 +147,7 @@ class SessionManager {
 
     this.isInLoginRequest = true;
     this.token = undefined;
-    
+
     try {
       const loginObj = await this.loginObj.getObj();
       const resp = await connectionClient.request('auth/loginSdk', loginObj, HttpMethod.POST);
@@ -187,7 +204,7 @@ class SessionManager {
 
   private enableAppState(): void {
     if (this.appStateUnsubscribe) return;
-    
+
     this.appStateUnsubscribe = this.eventManager.onStateChange?.((state) => {
       const orientation = this.eventManager.getOrientation?.() ?? 'unknown';
       const event = new AppEvent('change', state, orientation);
@@ -206,7 +223,7 @@ class SessionManager {
     this.token = undefined;
     this.user = undefined;
     if (this.appId && this.appKey) {
-      this.loginObj = new Login(this.appId, this.appKey, this.platform, this.storage);
+      this.loginObj = new Login(this.appId, this.appKey, this.platform, this.storage, this.sdkVersion);
     }
     this.innerLogin();
   }
@@ -238,7 +255,7 @@ class SessionManager {
       appKey: this.loginObj!.appKey
     };
     this.token = undefined;
-    
+
     try {
       const resp = await connectionClient.request('auth/refreshSdkToken', refresh, HttpMethod.POST);
       if (resp.ok) {

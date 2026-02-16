@@ -1,12 +1,8 @@
-// Main Shipbook class
-export { default as Shipbook } from './shipbook';
-export { default } from './shipbook';
-
 // Log class
 export { default as Log } from './log';
 
 // Interfaces
-export type { 
+export type {
   IStorage,
   IPlatform,
   IEventManager,
@@ -37,9 +33,6 @@ export type {
   AppenderResponse,
   LoggerResponse,
   RootResponse,
-  Login,
-  LoginData,
-  LoginOptions,
   RequestContext,
   Session,
   Browser,
@@ -69,18 +62,16 @@ export type {
   NormalizedStackTrace
 } from './utils';
 
-// Appenders (for advanced use)
+// Appenders
 export type { BaseAppender } from './appenders';
-export { ConsoleAppender, SBCloudAppender } from './appenders';
-export type { SBCloudAppenderDeps } from './appenders';
+export { ConsoleAppender } from './appenders';
 export { default as appenderFactory } from './appenders/appender-factory';
 
-// Managers (for advanced use)
+// Log manager
 export { default as logManager } from './log-manager';
-export { default as sessionManager } from './session-manager';
 
 // Networking
 export { connectionClient, HttpMethod } from './networking';
 
-// Internal SDK config (for platform packages only)
-export { sdkConfig } from './models/login';
+// SDK version
+export { CORE_VERSION } from './generated/version';

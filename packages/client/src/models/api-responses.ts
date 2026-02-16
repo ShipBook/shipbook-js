@@ -1,4 +1,4 @@
-import type { ConfigResponse } from './config-response';
+import type { ConfigResponse } from '@shipbook/core';
 
 /**
  * Response from auth/loginSdk endpoint

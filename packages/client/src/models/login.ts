@@ -1,18 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { IPlatform } from '../interfaces/platform';
-import type { IStorage } from '../interfaces/storage';
-import type User from './user';
-import { SDK_VERSION } from '../generated/version';
+import type { IPlatform, IStorage, User } from '@shipbook/core';
 
 const UUID_KEY = 'uuid';
-
-/**
- * Internal SDK configuration set by platform packages.
- * Not exposed to end users.
- */
-export const sdkConfig = {
-  sdkPlatformVersion: undefined as string | undefined
-};
 
 /**
  * Login data sent to the server
@@ -31,7 +20,6 @@ export interface LoginData {
   appVersion?: string;
   appBuild?: string;
   sdkVersion: string;
-  sdkPlatformVersion?: string;
   manufacturer?: string;
   deviceName?: string;
   deviceModel?: string;
@@ -62,8 +50,7 @@ export class Login {
   osVersion: string;
   appVersion?: string;
   appBuild?: string;
-  sdkVersion: string = SDK_VERSION;
-  sdkPlatformVersion?: string;
+  sdkVersion: string;
   manufacturer?: string;
   deviceName?: string;
   deviceModel?: string;
@@ -79,18 +66,17 @@ export class Login {
     appKey: string,
     platformAdapter: IPlatform,
     storage: IStorage,
+    sdkVersion: string,
     options?: LoginOptions
   ) {
     this.appId = appId;
     this.appKey = appKey;
     this.storage = storage;
+    this.sdkVersion = sdkVersion;
 
     // Set optional values if provided
     if (options?.appVersion) this.appVersion = options.appVersion;
     if (options?.appBuild) this.appBuild = options.appBuild;
-
-    // Set platform version from internal SDK config (set by platform packages)
-    this.sdkPlatformVersion = sdkConfig.sdkPlatformVersion;
 
     this.time = new Date();
     this.deviceTime = this.time;

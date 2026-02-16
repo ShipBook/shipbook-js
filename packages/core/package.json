@@ -8,8 +8,8 @@
     "lib/**/*"
   ],
   "scripts": {
-    "build": "node scripts/inject-version.js && tsc -b",
-    "clean": "rm -rf lib",
+    "build": "node ../../scripts/inject-version.js && tsc -b",
+    "clean": "tsc -b --clean",
     "test": "jest"
   },
   "repository": {
@@ -27,10 +27,6 @@
   "license": "MIT",
   "dependencies": {
     "eventemitter3": "^5.0.0",
-    "stacktrace-parser": "^0.1.10",
-    "uuid": "^9.0.0"
-  },
-  "devDependencies": {
-    "@types/uuid": "^9.0.0"
+    "stacktrace-parser": "^0.1.10"
   }
 }

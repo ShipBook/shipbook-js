@@ -1,4 +1,10 @@
 import { InnerLog, connectionClient, HttpMethod } from '@shipbook/core';
+import type { ConfigResponse } from '@shipbook/core';
+
+export interface LoginResult {
+  success: boolean;
+  config?: ConfigResponse;
+}
 
 class AuthManager {
   private token?: string;
@@ -7,13 +13,13 @@ class AuthManager {
   private appId?: string;
   private appKey?: string;
 
-  async login(appId: string, appKey: string): Promise<boolean> {
+  async login(appId: string, appKey: string): Promise<LoginResult> {
     this.appId = appId;
     this.appKey = appKey;
     return this.doLogin();
   }
 
-  private async doLogin(): Promise<boolean> {
+  private async doLogin(): Promise<LoginResult> {
     InnerLog.i('Attempting login to auth/loginSdkServer');
     try {
       const response = await connectionClient.request(
@@ -24,15 +30,15 @@ class AuthManager {
 
       if (!response.ok) {
         InnerLog.e('Auth failed:', await response.text());
-        return false;
+        return { success: false };
       }
 
-      const data: { token: string } = await response.json();
+      const data: { token: string; config?: ConfigResponse } = await response.json();
       this.setToken(data.token);
-      return true;
+      return { success: true, config: data.config };
     } catch (error) {
       InnerLog.e('Auth error:', error);
-      return false;
+      return { success: false };
     }
   }
 

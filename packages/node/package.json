@@ -8,8 +8,8 @@
     "lib/**/*"
   ],
   "scripts": {
-    "build": "node ../core/scripts/inject-version.js node && tsc -b",
-    "clean": "rm -rf lib",
+    "build": "node ../../scripts/inject-version.js node && tsc -b",
+    "clean": "tsc -b --clean",
     "test": "jest"
   },
   "repository": {

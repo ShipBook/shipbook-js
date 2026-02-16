@@ -1,8 +1,8 @@
 import type { BaseAppender, BaseLog, User, ConfigResponse, Session } from '@shipbook/core';
-import { Severity, SeverityUtil, InnerLog, connectionClient, HttpMethod, sdkConfig, Platform } from '@shipbook/core';
+import { Severity, SeverityUtil, InnerLog, connectionClient, HttpMethod, CORE_VERSION, Platform } from '@shipbook/core';
+import { PLATFORM_VERSION } from '../generated/version';
 import { requestContext } from '../context/request-context';
 import { storage } from '../adapters/storage';
-import { authManager } from '../auth/auth-manager';
 import { randomUUID } from 'crypto';
 import * as os from 'os';
 
@@ -18,8 +18,17 @@ interface SessionBatch {
   logs: BaseLog[];
 }
 
-export class NodeAppender implements BaseAppender {
-  name = 'NodeAppender';
+export interface SBCloudAppenderDeps {
+  appVersion?: string;
+  getToken: () => string | undefined;
+}
+
+/**
+ * Node.js cloud appender — registered as 'SBCloudAppender' so server config
+ * (which references that name) activates this appender via appenderFactory.
+ */
+export class SBCloudAppender implements BaseAppender {
+  name: string;
 
   private sessionBatches = new Map<string, SessionBatch>();
   private timer?: ReturnType<typeof setTimeout>;
@@ -29,7 +38,19 @@ export class NodeAppender implements BaseAppender {
   private machineUdid?: string;
   private backgroundSessionId = randomUUID();  // One session per process lifecycle
 
-  constructor(private appVersion?: string) {
+  private static _deps: SBCloudAppenderDeps;
+  private appVersion: string | undefined;
+  private getToken: () => string | undefined;
+
+  static setDeps(deps: SBCloudAppenderDeps): void {
+    SBCloudAppender._deps = deps;
+  }
+
+  constructor(name: string, config?: ConfigResponse) {
+    this.name = name;
+    this.appVersion = SBCloudAppender._deps.appVersion;
+    this.getToken = SBCloudAppender._deps.getToken;
+    this.update(config);
     this.restoreFromStorage();
     this.initMachineUdid();
   }
@@ -192,9 +213,9 @@ export class NodeAppender implements BaseAppender {
 
   private async send(): Promise<void> {
     InnerLog.d('send() called');
-    const token = authManager.getToken();
+    const token = this.getToken();
     if (!token) {
-      InnerLog.e('No auth token, cannot send logs');
+      InnerLog.d('No auth token yet, cannot send logs');
       return;
     }
 
@@ -228,7 +249,7 @@ export class NodeAppender implements BaseAppender {
           version: this.appVersion
         },
         sdkInfo: {
-          platformVersion: sdkConfig.sdkPlatformVersion
+          version: `core:${CORE_VERSION}/node:${PLATFORM_VERSION}`
         },
         logs: batch.logs
       });

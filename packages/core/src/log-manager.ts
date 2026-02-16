@@ -31,13 +31,6 @@ class LogManager {
     });
   }
 
-  clear(): void {
-    this.appenders.forEach(appender => appender.destructor());
-    InnerLog.d('called clear');
-    this.appenders.clear();
-    this.loggers = [];
-  }
-
   add(appender: BaseAppender, name: string): void {
     const origAppender = this.appenders.get(name);
     if (appender !== origAppender) {
@@ -56,7 +49,7 @@ class LogManager {
     if (log.type === 'message') {
       const message = log as Message;
       const appenderNames = new Set<string>();
-      
+
       this.loggers.forEach(logger => {
         if (message.tag!.startsWith(logger.key) && 
             SeverityUtil.value(message.severity) <= SeverityUtil.value(logger.severity)) {
@@ -82,7 +75,7 @@ class LogManager {
   getSeverity(tag: string): Severity {
     let severity = Severity.Off;
     this.loggers.forEach(logger => {
-      if (tag.startsWith(logger.key) && 
+      if (tag.startsWith(logger.key) &&
           SeverityUtil.value(logger.severity) > SeverityUtil.value(severity)) {
         severity = logger.severity;
       }
@@ -93,7 +86,7 @@ class LogManager {
   getCallStackSeverity(tag: string): Severity {
     let callStackSeverity = Severity.Off;
     this.loggers.forEach(logger => {
-      if (tag.startsWith(logger.key) && 
+      if (tag.startsWith(logger.key) &&
           SeverityUtil.value(logger.callStackSeverity) > SeverityUtil.value(callStackSeverity)) {
         callStackSeverity = logger.callStackSeverity;
       }
@@ -102,22 +95,33 @@ class LogManager {
   }
 
   config(conf: ConfigResponse): void {
-    // Clear existing appenders
-    this.clear();
-    
-    // Create new appenders
+    const prev = new Map(this.appenders);
+    this.appenders.clear();
+    this.loggers = [];
+
+    // Create or reuse appenders
     conf.appenders.forEach(appender => {
       try {
-        const base = appenderFactory.create(
-          appender.type, 
-          appender.name, 
-          appender.config as ConfigResponse
-        );
-        this.appenders.set(appender.name, base);
+        const existing = prev.get(appender.name);
+        if (existing) {
+          existing.update(appender.config as ConfigResponse);
+          this.appenders.set(appender.name, existing);
+          prev.delete(appender.name);
+        } else {
+          const base = appenderFactory.create(
+            appender.type,
+            appender.name,
+            appender.config as ConfigResponse
+          );
+          this.appenders.set(appender.name, base);
+        }
       } catch (e) {
         InnerLog.e("didn't succeed to create appender: " + appender.name, e);
       }
     });
+
+    // Destruct removed appenders
+    prev.forEach(appender => appender.destructor());
 
     // Configure loggers
     this.loggers = [];

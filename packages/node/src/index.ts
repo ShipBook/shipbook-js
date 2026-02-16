@@ -1,121 +1,85 @@
-import { Shipbook as CoreShipbook, Log, logManager, appenderFactory, InnerLog, connectionClient, sdkConfig } from '@shipbook/core';
-import { SDK_PLATFORM_VERSION } from './generated/version';
-
-// Set platform version (internal, not exposed to users)
-sdkConfig.sdkPlatformVersion = SDK_PLATFORM_VERSION;
-import { storage, platform, eventManager, exceptionHandler } from './adapters';
+import { Log, appenderFactory, logManager, InnerLog, connectionClient, Message } from '@shipbook/core';
+import type { ConfigResponse } from '@shipbook/core';
+import { storage } from './adapters';
 import { createExpressMiddleware } from './middleware/express';
 import { createNestInterceptor } from './middleware/nestjs';
-import { NodeAppender } from './appender/node-appender';
+import { SBCloudAppender } from './appender/sbcloud-appender';
 import { authManager } from './auth/auth-manager';
 import { requestContext } from './context/request-context';
 
-// Node-specific config - console appender + NodeAppender (no SBCloudAppender)
-const nodeConfig = {
+const defaultConfig: ConfigResponse = {
   appenders: [
-    {
-      type: 'ConsoleAppender',
-      name: 'console'
-    },
-    {
-      type: 'NodeAppender',  // Will be provided via appenderFactory.registerAppender()
-      name: 'NodeAppender'
-    }
+    { type: 'ConsoleAppender', name: 'console', config: { pattern: '$message' } },
+    { type: 'SBCloudAppender', name: 'cloud', config: { maxTime: 3, flushSeverity: 'Warning' } }
   ],
   loggers: [
-    {
-      name: '',
-      severity: 'Verbose',
-      appenderRef: 'console'
-    },
-    {
-      name: '',
-      severity: 'Verbose',
-      appenderRef: 'NodeAppender'
-    }
+    { name: '', severity: 'Verbose', appenderRef: 'console' },
+    { name: '', severity: 'Verbose', appenderRef: 'cloud' }
   ]
 };
 
 class ShipbookNode {
-  private appender?: NodeAppender;
-
-  constructor() {
-    // Configure core with Node.js adapters
-    CoreShipbook.configure({
-      storage,
-      platform,
-      eventManager,
-      exceptionHandler
-    });
-  }
-
   async start(appId: string, appKey: string, appVersion?: string): Promise<string | undefined> {
-    // Initialize appender immediately so logs are buffered from the start
-    this.appender = new NodeAppender(appVersion);
-    appenderFactory.registerAppender('NodeAppender', this.appender);
-    logManager.config(nodeConfig);
+    // Set deps and register class so the factory can create it during config()
+    SBCloudAppender.setDeps({ appVersion, getToken: () => authManager.getToken() });
+    appenderFactory.register('SBCloudAppender', SBCloudAppender);
 
-    // Configure connectionClient with auth functions
-    connectionClient.configure({
+    connectionClient.setDeps({
       getToken: () => authManager.getToken(),
-      refreshToken: () => authManager.login(appId, appKey)
+      refreshToken: async () => {
+        const result = await authManager.login(appId, appKey);
+        if (result.config) {
+          logManager.config(result.config);
+          storage.setObj('config', result.config);
+        }
+        return result.success;
+      }
     });
 
-    // Login (don't block if fails - SDK should never prevent app from running)
-    const loginSuccess = await authManager.login(appId, appKey);
-    if (!loginSuccess) {
+    // Load persisted config
+    let config = await storage.getObj<ConfigResponse>('config');
+    if (!config) config = defaultConfig;
+    logManager.config(config);
+
+    // Auth via loginSdkServer (server-specific, with proactive token refresh)
+    const result = await authManager.login(appId, appKey);
+    if (!result.success) {
       InnerLog.w('Auth failed - logs will be buffered until auth succeeds');
+    }
+
+    // Apply and persist server config
+    if (result.config) {
+      logManager.config(result.config);
+      storage.setObj('config', result.config);
     }
 
     return undefined;
   }
 
   getLogger(tag: string): Log {
-    return CoreShipbook.getLogger(tag);
+    return new Log(tag);
   }
 
   enableInnerLog(enable: boolean): void {
-    CoreShipbook.enableInnerLog(enable);
+    InnerLog.enabled = enable;
   }
 
   setConnectionUrl(url: string): void {
-    CoreShipbook.setConnectionUrl(url);
-  }
-
-  registerUser(
-    userId: string,
-    userName?: string,
-    fullName?: string,
-    email?: string,
-    phoneNumber?: string,
-    additionalInfo?: object
-  ): void {
-    CoreShipbook.registerUser(userId, userName, fullName, email, phoneNumber, additionalInfo);
-  }
-
-  logout(): void {
-    CoreShipbook.logout();
+    connectionClient.BASE_URL = url.endsWith('/') ? url : url + '/';
   }
 
   flush(): void {
-    CoreShipbook.flush();
-  }
-
-  screen(name: string): void {
-    CoreShipbook.screen(name);
-  }
-
-  getUUID(): string | undefined {
-    return CoreShipbook.getUUID();
+    logManager.flush();
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   addWrapperClass(cls: Function | string): void {
-    CoreShipbook.addWrapperClass(cls);
+    const name = typeof cls === 'string' ? cls : cls.name;
+    Message.ignoreClasses.add(name);
   }
 
   setStackOffset(offset: number): void {
-    CoreShipbook.setStackOffset(offset);
+    Message.stackOffset = offset;
   }
 
   // Express middleware factory
@@ -139,7 +103,7 @@ class ShipbookNode {
 
   // Graceful shutdown
   async shutdown(): Promise<void> {
-    this.appender?.flush();
+    logManager.flush();
     authManager.destroy();
   }
 }

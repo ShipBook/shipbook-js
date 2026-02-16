@@ -3,13 +3,11 @@
   "compilerOptions": {
     "outDir": "./lib",
     "rootDir": "./src",
-    "composite": true,
-    "lib": ["ES2020", "DOM"]
+    "composite": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "lib", "**/__tests__/*"],
+  "exclude": ["node_modules", "lib"],
   "references": [
-    { "path": "../core" },
-    { "path": "../client" }
+    { "path": "../core" }
   ]
 }

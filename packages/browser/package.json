@@ -8,8 +8,8 @@
     "lib/**/*"
   ],
   "scripts": {
-    "build": "node ../core/scripts/inject-version.js browser && tsc -b",
-    "clean": "rm -rf lib",
+    "build": "node ../../scripts/inject-version.js browser && tsc -b",
+    "clean": "tsc -b --clean",
     "test": "jest"
   },
   "repository": {
@@ -28,6 +28,7 @@
   "author": "Elisha Sterngold",
   "license": "MIT",
   "dependencies": {
+    "@shipbook/client": "^1.0.0",
     "@shipbook/core": "^1.0.0"
   }
 }

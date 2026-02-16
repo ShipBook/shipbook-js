@@ -61,22 +61,10 @@ async function main() {
     console.log('  🐛 Logged: exception');
   }
 
-  // Log a screen event
-  Shipbook.screen('MainScreen');
-  console.log('  📱 Logged: screen event');
-
-  // Register a user
-  console.log('\nRegistering user...');
-  Shipbook.registerUser('user-123', 'testuser', 'Test User', 'test@example.com');
-  console.log('  👤 User registered');
-
   // Flush logs
   console.log('\nFlushing logs...');
   Shipbook.flush();
   console.log('  ✅ Logs flushed');
-
-  // Print UUID
-  console.log(`\n📋 Session UUID: ${Shipbook.getUUID() || 'N/A'}`);
 
   console.log('\n=== Example completed ===');
   console.log('Set SHIPBOOK_APP_ID and SHIPBOOK_APP_KEY in .env file (see .env.example).');

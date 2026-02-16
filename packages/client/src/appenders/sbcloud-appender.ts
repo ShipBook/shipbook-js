@@ -1,17 +1,24 @@
-import InnerLog from '../utils/inner-log';
-import type BaseEvent from '../models/base-event';
-import type BaseLog from '../models/base-log';
-import { LogType } from '../models/base-log';
-import type Exception from '../models/exception';
-import type { Login } from '../models/login';
-import type Message from '../models/message';
-import { Severity, SeverityUtil } from '../models/severity';
-import type User from '../models/user';
-import type { ConfigResponse } from '../models/config-response';
-import type { BaseAppender } from './base-appender';
-import { USER_CHANGE, CONNECTED, eventEmitter } from '../utils/event-emitter';
-import type { IStorage } from '../interfaces/storage';
-import type { IEventManager } from '../interfaces/event-manager';
+import {
+  InnerLog,
+  Severity,
+  SeverityUtil,
+  Exception,
+  eventEmitter,
+  USER_CHANGE,
+  CONNECTED,
+  LogType,
+  BaseEvent,
+  Message
+} from '@shipbook/core';
+import type {
+  BaseAppender,
+  BaseLog,
+  User,
+  ConfigResponse,
+  IStorage,
+  IEventManager
+} from '@shipbook/core';
+import type { Login } from '../models';
 
 enum DataType {
   Token = 'token',
@@ -57,13 +64,18 @@ export default class SBCloudAppender implements BaseAppender {
   private hasLog = false;
   private unsubscribeBackground?: () => void;
 
+  private static _deps: SBCloudAppenderDeps;
   private deps: SBCloudAppenderDeps;
 
   static started = false;
 
-  constructor(name: string, deps: SBCloudAppenderDeps, config?: ConfigResponse) {
+  static setDeps(deps: SBCloudAppenderDeps): void {
+    SBCloudAppender._deps = deps;
+  }
+
+  constructor(name: string, config?: ConfigResponse) {
     this.name = name;
-    this.deps = deps;
+    this.deps = SBCloudAppender._deps;
     this.update(config);
 
     // Subscribe to background events for flushing
@@ -88,7 +100,7 @@ export default class SBCloudAppender implements BaseAppender {
     }
     eventEmitter.removeListener(USER_CHANGE, this.changeUser);
     eventEmitter.removeListener(CONNECTED, this.connected);
-    
+
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = undefined;
@@ -113,8 +125,8 @@ export default class SBCloudAppender implements BaseAppender {
   update(config?: ConfigResponse): void {
     if (!config) return;
     this.maxTime = (config.maxTime as number) ?? this.maxTime;
-    this.flushSeverity = config.flushSeverity 
-      ? Severity[config.flushSeverity as keyof typeof Severity] 
+    this.flushSeverity = config.flushSeverity
+      ? Severity[config.flushSeverity as keyof typeof Severity]
       : this.flushSeverity;
     this.flushSize = (config.flushSize as number) ?? this.flushSize;
   }
@@ -123,7 +135,7 @@ export default class SBCloudAppender implements BaseAppender {
     if (log.type === LogType.Message) {
       await this.pushMessage(log as Message);
     } else if (log.type === LogType.Exception) {
-      await this.pushException(log as Exception);
+      await this.pushException(log as unknown as Exception);
     } else {
       await this.pushEvent(log as BaseEvent);
     }
@@ -132,7 +144,7 @@ export default class SBCloudAppender implements BaseAppender {
   private async pushMessage(log: Message): Promise<void> {
     const message = await log.getObj();
     this.flushQueue.push(message);
-    
+
     if (SeverityUtil.value(this.flushSeverity) < SeverityUtil.value(message.severity)) {
       InnerLog.d('entered flush queue');
       if (this.flushQueue.length > this.flushSize) {
@@ -168,7 +180,7 @@ export default class SBCloudAppender implements BaseAppender {
 
   private async send(): Promise<void> {
     InnerLog.d('entered send');
-    
+
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = undefined;
@@ -185,7 +197,7 @@ export default class SBCloudAppender implements BaseAppender {
         sessionsData,
         'POST'
       );
-      
+
       if (resp.ok) {
         const text = await resp.text();
         InnerLog.i('got ok of upload ' + text);
@@ -227,8 +239,6 @@ export default class SBCloudAppender implements BaseAppender {
 
         case LogType.Exception: {
           const { name, reason, stack } = data.data as { name: string; reason: string; stack: string };
-          // Import Exception dynamically to avoid circular deps
-          const { default: Exception } = await import('../models/exception');
           const exception = await new Exception(name, reason, stack).getObj();
           sessionData?.logs.push(exception);
           break;
@@ -251,12 +261,12 @@ export default class SBCloudAppender implements BaseAppender {
     }
 
     const storageData: StorageData[] = [];
-    
+
     if (!this.hasLog) {
       this.hasLog = true;
       const token = this.deps.getToken();
       const loginObj = this.deps.getLoginObj();
-      
+
       if (token) {
         storageData.push({
           type: DataType.Token,

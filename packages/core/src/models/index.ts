@@ -13,8 +13,6 @@ export type {
   LoggerResponse, 
   RootResponse 
 } from './config-response';
-export { Login } from './login';
-export type { LoginData, LoginOptions } from './login';
 export type { RequestContext } from './request-context';
 
 export { Platform } from './session';
