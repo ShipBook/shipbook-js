@@ -12,6 +12,7 @@
   "dependencies": {
     "@babel/runtime": "^7.28.4",
     "@react-native-async-storage/async-storage": "^1.24.0",
+    "@shipbook/client": "file:../../packages/client",
     "@shipbook/core": "file:../../packages/core",
     "@shipbook/react-native": "file:../../packages/react-native",
     "dotenv": "^16.0.0",

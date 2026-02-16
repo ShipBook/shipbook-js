@@ -8,6 +8,7 @@ const monorepoRoot = path.resolve(__dirname, '../..');
 // Watch the monorepo packages for changes
 config.watchFolders = [
   path.resolve(monorepoRoot, 'packages/core'),
+  path.resolve(monorepoRoot, 'packages/client'),
   path.resolve(monorepoRoot, 'packages/react-native'),
 ];
 
@@ -23,6 +24,7 @@ config.resolver.nodeModulesPaths = [
 // Resolve @shipbook packages to monorepo
 config.resolver.extraNodeModules = {
   '@shipbook/core': path.resolve(monorepoRoot, 'packages/core'),
+  '@shipbook/client': path.resolve(monorepoRoot, 'packages/client'),
   '@shipbook/react-native': path.resolve(monorepoRoot, 'packages/react-native'),
 };
 
