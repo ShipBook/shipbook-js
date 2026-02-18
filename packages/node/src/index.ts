@@ -1,4 +1,4 @@
-import { Log, appenderFactory, logManager, InnerLog, connectionClient, Message } from '@shipbook/core';
+import { Log, appenderFactory, logManager, InnerLog, connectionClient, HttpMethod, Message } from '@shipbook/core';
 import type { ConfigResponse } from '@shipbook/core';
 import { storage } from './adapters';
 import { createExpressMiddleware } from './middleware/express';
@@ -6,6 +6,8 @@ import { createNestInterceptor } from './middleware/nestjs';
 import { SBCloudAppender } from './appender/sbcloud-appender';
 import { authManager } from './auth/auth-manager';
 import { requestContext } from './context/request-context';
+
+const DEFAULT_CONFIG_REFRESH_INTERVAL = 300; // 5 minutes in seconds
 
 const defaultConfig: ConfigResponse = {
   appenders: [
@@ -19,6 +21,9 @@ const defaultConfig: ConfigResponse = {
 };
 
 class ShipbookNode {
+  private configRefreshTimer?: ReturnType<typeof setTimeout>;
+  private configRefreshInterval = DEFAULT_CONFIG_REFRESH_INTERVAL;
+
   async start(appId: string, appKey: string, appVersion?: string): Promise<string | undefined> {
     // Set deps and register class so the factory can create it during config()
     SBCloudAppender.setDeps({ appVersion, getToken: () => authManager.getToken() });
@@ -28,11 +33,10 @@ class ShipbookNode {
       getToken: () => authManager.getToken(),
       refreshToken: async () => {
         const result = await authManager.login(appId, appKey);
-        if (result.config) {
-          logManager.config(result.config);
-          storage.setObj('config', result.config);
-        }
-        return result.success;
+        if (!result) return false;
+        logManager.config(result.config);
+        storage.setObj('config', result.config);
+        return true;
       }
     });
 
@@ -43,17 +47,45 @@ class ShipbookNode {
 
     // Auth via loginSdkServer (server-specific, with proactive token refresh)
     const result = await authManager.login(appId, appKey);
-    if (!result.success) {
+    if (!result) {
       InnerLog.w('Auth failed - logs will be buffered until auth succeeds');
+      return undefined;
     }
 
     // Apply and persist server config
-    if (result.config) {
-      logManager.config(result.config);
-      storage.setObj('config', result.config);
-    }
+    logManager.config(result.config);
+    storage.setObj('config', result.config);
+    this.scheduleConfigRefresh(result.config.configRefreshInterval);
 
     return undefined;
+  }
+
+  private scheduleConfigRefresh(intervalSeconds?: number): void {
+    this.configRefreshInterval = intervalSeconds ?? this.configRefreshInterval;
+    if (this.configRefreshTimer) {
+      clearTimeout(this.configRefreshTimer);
+    }
+    this.configRefreshTimer = setTimeout(() => this.refreshConfig(), this.configRefreshInterval * 1000);
+  }
+
+  private async refreshConfig(): Promise<void> {
+    try {
+      const response = await connectionClient.request('auth/configSdkServer', undefined, HttpMethod.GET);
+      if (!response.ok) {
+        InnerLog.e('Config refresh failed:', response.status);
+        this.scheduleConfigRefresh();
+        return;
+      }
+
+      const newConfig: ConfigResponse = await response.json();
+      logManager.config(newConfig);
+      storage.setObj('config', newConfig);
+
+      this.scheduleConfigRefresh(newConfig.configRefreshInterval);
+    } catch (error) {
+      InnerLog.e('Config refresh error:', error);
+      this.scheduleConfigRefresh();
+    }
   }
 
   getLogger(tag: string): Log {
@@ -103,6 +135,9 @@ class ShipbookNode {
 
   // Graceful shutdown
   async shutdown(): Promise<void> {
+    if (this.configRefreshTimer) {
+      clearTimeout(this.configRefreshTimer);
+    }
     logManager.flush();
     authManager.destroy();
   }

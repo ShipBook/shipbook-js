@@ -17,6 +17,7 @@ interface Logger {
 class LogManager {
   private appenders = new Map<string, BaseAppender>();
   private loggers: Logger[] = [];
+  private currentConfigJson?: string;
 
   constructor() {
     // Default console appender so logs work before start() is called.
@@ -95,6 +96,10 @@ class LogManager {
   }
 
   config(conf: ConfigResponse): void {
+    const confJson = JSON.stringify(conf);
+    if (confJson === this.currentConfigJson) return;
+    this.currentConfigJson = confJson;
+
     const prev = new Map(this.appenders);
     this.appenders.clear();
     this.loggers = [];

@@ -2,6 +2,7 @@ export interface ConfigResponse {
   [key: string]: unknown;
   eventLoggingDisabled?: boolean;
   exceptionReportDisabled?: boolean;
+  configRefreshInterval?: number;
 
   appenders: AppenderResponse[];
   loggers: LoggerResponse[];
