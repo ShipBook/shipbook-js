@@ -1,6 +1,6 @@
 {
   "name": "@shipbook/node",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Shipbook SDK for Node.js - Remote logging and error tracking for servers and serverless",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -31,7 +31,7 @@
     "node": ">=14.0.0"
   },
   "dependencies": {
-    "@shipbook/core": "^2.0.0"
+    "@shipbook/core": "^2.0.1"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
