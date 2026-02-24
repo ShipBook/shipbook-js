@@ -10,7 +10,7 @@ export enum HttpMethod {
  * Manages authentication and token refresh
  */
 class ConnectionClient {
-  public BASE_URL = 'https://api.shipbook.io/v1/';
+  public BASE_URL = 'https://api.shipbook.io/v2/';
   
   private getToken: () => string | undefined = () => undefined;
   private refreshTokenFn: () => Promise<boolean> = async () => false;
