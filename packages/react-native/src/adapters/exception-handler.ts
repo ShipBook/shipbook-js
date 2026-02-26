@@ -14,6 +14,14 @@ class ReactNativeExceptionHandler implements IExceptionHandler {
   private originalHandler?: (error: Error, isFatal?: boolean) => void;
   private callback?: ExceptionCallback;
 
+  private describeUnknown(error: unknown): string {
+    if (error == null) return 'Unknown error';
+    if (typeof error === 'object') {
+      try { return JSON.stringify(error); } catch { /* circular ref */ }
+    }
+    return String(error);
+  }
+
   start(onException: ExceptionCallback): void {
     if (this.active) return;
 
@@ -21,18 +29,16 @@ class ReactNativeExceptionHandler implements IExceptionHandler {
     this.originalHandler = ErrorUtils.getGlobalHandler();
 
     ErrorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
-      if (this.callback) {
-        this.callback(
-          error.name,
-          error.message,
-          error.stack,
+      try {
+        const isError = error instanceof Error;
+        this.callback?.(
+          isError ? error.name : 'Exception',
+          isError ? error.message : this.describeUnknown(error),
+          isError ? error.stack : '',
           isFatal
         );
-      }
-
-      // Call original handler
-      if (this.originalHandler) {
-        this.originalHandler(error, isFatal);
+      } finally {
+        this.originalHandler?.(error, isFatal);
       }
     });
 
