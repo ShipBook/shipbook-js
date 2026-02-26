@@ -10,7 +10,7 @@
   "scripts": {
     "build": "node ../../scripts/inject-version.js react-native && tsc -b",
     "clean": "tsc -b --clean",
-    "test": "jest"
+    "test": "jest --passWithNoTests"
   },
   "repository": {
     "type": "git",
