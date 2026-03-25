@@ -242,5 +242,5 @@ MIT License - see [LICENSE](LICENSE) for details.
 ## Links
 
 - [Shipbook Website](https://www.shipbook.io/)
-- [Documentation](https://docs.shipbook.io/)
+- [Documentation](https://www.shipbook.io/docs/)
 - [GitHub Issues](https://github.com/ShipBook/shipbook-js/issues)
