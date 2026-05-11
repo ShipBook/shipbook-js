@@ -29,7 +29,12 @@ class AuthManager {
       );
 
       if (!response.ok) {
-        InnerLog.e('Auth failed:', await response.text());
+        const text = await response.text();
+        if (response.status >= 400 && response.status < 500) {
+          // 4xx on loginSdkServer = integration error (bad appId/appKey, app deleted). Retrying won't help — caller must fix the integration. Don't reschedule refresh.
+          InnerLog.e(`loginSdkServer rejected with ${response.status} — check appId/appKey. Will not retry. body: ${text}`);
+        }
+        else InnerLog.e('Auth failed:', text);
         return undefined;
       }
 

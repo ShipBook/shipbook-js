@@ -165,7 +165,14 @@ class SessionManager {
         this.storage.setObj('config', json.config);
 
         return json.sessionUrl;
-      } else {
+      }
+      else if (resp.status >= 400 && resp.status < 500) {
+        // 4xx on loginSdk = integration error (bad appId/appKey, app deleted). Retrying won't help — caller must fix the integration.
+        const text = await resp.text();
+        InnerLog.e(`loginSdk rejected with ${resp.status} — check appId/appKey. Will not retry. body: ${text}`);
+        return;
+      }
+      else {
         InnerLog.e("didn't succeed to log");
         const text = await resp.text();
         if (text) {
