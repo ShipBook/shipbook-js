@@ -21,6 +21,7 @@ export default function App() {
     if (SHIPBOOK_URL) {
       Shipbook.setConnectionUrl(SHIPBOOK_URL);
     }
+    Shipbook.enableInnerLog(true); // Enable internal logging for debugging purposes
 
     Shipbook.start(APP_ID, APP_KEY, {
       appVersion: '1.0.1',
