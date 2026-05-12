@@ -1,6 +1,6 @@
 {
   "name": "@shipbook/client",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Shipbook client SDK - Auth/session layer for browser and React Native",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
