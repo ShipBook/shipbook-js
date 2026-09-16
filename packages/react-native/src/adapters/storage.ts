@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AutoQueue, type IStorage } from '@shipbook/core';
+import { AutoQueue, InnerLog, type IStorage } from '@shipbook/core';
 
 /**
  * React Native storage adapter using AsyncStorage
@@ -26,7 +26,13 @@ class ReactNativeStorage implements IStorage {
   async getObj<T = object>(key: string): Promise<T | undefined> {
     const value = await AsyncStorage.getItem(key);
     if (!value) return undefined;
-    return JSON.parse(value) as T;
+    try {
+      return JSON.parse(value) as T;
+    } catch (error) {
+      InnerLog.e(`stored value for "${key}" is not valid JSON, removing it`, error);
+      await AsyncStorage.removeItem(key);
+      return undefined;
+    }
   }
 
   async pushArrayObj(key: string, value: object | object[]): Promise<void> {
