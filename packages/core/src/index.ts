@@ -25,9 +25,7 @@ export {
   Severity,
   SeverityUtil,
   Platform,
-  SESSION_LINK_HEADER,
-  SESSION_LINK_VERSION,
-  parseSessionLinkHeader
+  SESSION_LINK_HEADER
 } from './models';
 
 export type {
@@ -38,7 +36,6 @@ export type {
   RootResponse,
   RequestContext,
   Session,
-  SessionLink,
   Browser,
   DeviceInfo,
   VersionInfo,

@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { randomUUID } from 'crypto';
 import type { User, RequestContext } from '@shipbook/core';
-import { logManager, parseSessionLinkHeader, SESSION_LINK_HEADER } from '@shipbook/core';
+import { logManager, SESSION_LINK_HEADER } from '@shipbook/core';
 import { requestContext } from '../context/request-context';
 
 export interface ExpressExtractors {
@@ -37,7 +37,7 @@ export function createExpressMiddleware(extractors: ExpressExtractors = {}) {
     const context: RequestContext = {
       sessionId: merged.session?.(req) || randomUUID(),
       traceId: merged.trace?.(req),
-      callerSession: parseSessionLinkHeader(req.headers[SESSION_LINK_HEADER] as string | undefined),
+      callerSessionLink: req.headers[SESSION_LINK_HEADER] as string | undefined,
       user: merged.user?.(req),
       metadata: {
         method: req.method,

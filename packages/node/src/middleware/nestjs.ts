@@ -2,7 +2,7 @@ import type { NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/com
 import type { Observable } from 'rxjs';
 import { randomUUID } from 'crypto';
 import type { User, RequestContext } from '@shipbook/core';
-import { logManager, parseSessionLinkHeader, SESSION_LINK_HEADER } from '@shipbook/core';
+import { logManager, SESSION_LINK_HEADER } from '@shipbook/core';
 import { requestContext } from '../context/request-context';
 
 export interface NestExtractors {
@@ -25,7 +25,7 @@ export function createNestInterceptor(extractors: NestExtractors = {}) {
       const ctx: RequestContext = {
         sessionId: extractors.session?.(context) || req.sessionID || randomUUID(),
         traceId: extractors.trace?.(context) || req.headers['x-request-id'],
-        callerSession: parseSessionLinkHeader(req.headers[SESSION_LINK_HEADER]),
+        callerSessionLink: req.headers[SESSION_LINK_HEADER],
         user,
         metadata: {
           method: req.method,

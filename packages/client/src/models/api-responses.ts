@@ -7,7 +7,7 @@ export interface LoginResponse {
   token: string;
   config: ConfigResponse;
   sessionUrl: string;
-  sessionId: string; // Empty when the device is silenced
+  sessionLink: string; // Opaque x-shipbook-session value; empty when the device is silenced
 }
 
 /**

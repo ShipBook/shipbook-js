@@ -10,8 +10,7 @@ import {
   Exception,
   AppEvent,
   CORE_VERSION,
-  SESSION_LINK_HEADER,
-  SESSION_LINK_VERSION
+  SESSION_LINK_HEADER
 } from '@shipbook/core';
 import type {
   User,
@@ -58,7 +57,7 @@ const defaultConfig: ConfigResponse = {
 
 class SessionManager {
   token?: string;
-  sessionId?: string;
+  sessionLink?: string;
   private _loginObj?: Login;
   user?: User;
   appId?: string;
@@ -150,7 +149,7 @@ class SessionManager {
 
     this.isInLoginRequest = true;
     this.token = undefined;
-    this.sessionId = undefined;
+    this.sessionLink = undefined;
 
     try {
       const loginObj = await this.loginObj.getObj();
@@ -161,7 +160,7 @@ class SessionManager {
         const json = await resp.json() as LoginResponse;
         InnerLog.i('Succeeded! : ' + JSON.stringify(json));
         this.token = json.token;
-        this.sessionId = json.sessionId;
+        this.sessionLink = json.sessionLink;
 
         // Set config information
         this.readConfig(json.config);
@@ -290,8 +289,8 @@ class SessionManager {
 
   // Empty until login completes and on silenced devices, so callers can always spread it.
   getSessionHeaders(): Record<string, string> {
-    if (!this.sessionId || !this.appId) return {};
-    return { [SESSION_LINK_HEADER]: `${SESSION_LINK_VERSION}:${this.appId}:${this.sessionId}` };
+    if (!this.sessionLink) return {};
+    return { [SESSION_LINK_HEADER]: this.sessionLink };
   }
 }
 
