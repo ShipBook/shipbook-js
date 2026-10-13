@@ -188,6 +188,17 @@ describe('Express Middleware', () => {
       });
     });
 
+    it('should use the caller link as the session id ahead of a custom extractor', (done) => {
+      const middleware = createExpressMiddleware({ session: () => 'custom-session-id' });
+      const req = createMockRequest({ headers: { 'x-shipbook-session': '1:app-1:sess-abc' } });
+      const res = createMockResponse();
+
+      middleware(req, res, () => {
+        expect(requestContext.get()?.sessionId).toBe('1:app-1:sess-abc');
+        done();
+      });
+    });
+
     it('should use custom user extractor', (done) => {
       const middleware = createExpressMiddleware({
         user: (req) => ({

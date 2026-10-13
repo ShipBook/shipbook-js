@@ -34,10 +34,12 @@ export function createExpressMiddleware(extractors: ExpressExtractors = {}) {
   const merged = { ...defaultExtractors, ...extractors };
 
   return function shipbookMiddleware(req: Request, res: Response, next: NextFunction) {
+    const callerSessionLink = req.headers[SESSION_LINK_HEADER] as string | undefined;
     const context: RequestContext = {
-      sessionId: merged.session?.(req) || randomUUID(),
+      // A linked request joins its caller's session, so every server session has exactly one caller.
+      sessionId: callerSessionLink || merged.session?.(req) || randomUUID(),
       traceId: merged.trace?.(req),
-      callerSessionLink: req.headers[SESSION_LINK_HEADER] as string | undefined,
+      callerSessionLink,
       user: merged.user?.(req),
       metadata: {
         method: req.method,

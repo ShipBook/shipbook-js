@@ -22,10 +22,12 @@ export function createNestInterceptor(extractors: NestExtractors = {}) {
         email: req.user.email
       } : undefined);
 
+      const callerSessionLink: string | undefined = req.headers[SESSION_LINK_HEADER];
       const ctx: RequestContext = {
-        sessionId: extractors.session?.(context) || req.sessionID || randomUUID(),
+        // A linked request joins its caller's session, so every server session has exactly one caller.
+        sessionId: callerSessionLink || extractors.session?.(context) || req.sessionID || randomUUID(),
         traceId: extractors.trace?.(context) || req.headers['x-request-id'],
-        callerSessionLink: req.headers[SESSION_LINK_HEADER],
+        callerSessionLink,
         user,
         metadata: {
           method: req.method,
