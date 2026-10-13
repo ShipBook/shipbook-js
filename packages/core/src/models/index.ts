@@ -15,7 +15,7 @@ export type {
 } from './config-response';
 export type { RequestContext } from './request-context';
 
-export { Platform, SESSION_LINK_HEADER, parseSessionLinkHeader } from './session';
+export { Platform, SESSION_LINK_HEADER, SESSION_LINK_VERSION, parseSessionLinkHeader } from './session';
 
 export type {
   Session,

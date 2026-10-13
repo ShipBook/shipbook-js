@@ -10,7 +10,8 @@ import {
   Exception,
   AppEvent,
   CORE_VERSION,
-  SESSION_LINK_HEADER
+  SESSION_LINK_HEADER,
+  SESSION_LINK_VERSION
 } from '@shipbook/core';
 import type {
   User,
@@ -287,10 +288,10 @@ class SessionManager {
     return this.loginObj?.udid;
   }
 
-  // Empty until login completes (or on older servers that don't return sessionId), so callers can always spread it.
+  // Empty until login completes and on silenced devices, so callers can always spread it.
   getSessionHeaders(): Record<string, string> {
     if (!this.sessionId || !this.appId) return {};
-    return { [SESSION_LINK_HEADER]: `${this.appId}:${this.sessionId}` };
+    return { [SESSION_LINK_HEADER]: `${SESSION_LINK_VERSION}:${this.appId}:${this.sessionId}` };
   }
 }
 

@@ -106,7 +106,7 @@ export interface Session {
   metadata?: Record<string, unknown>;
   isBackground?: boolean;
   jobName?: string;
-  callerApp?: string;
+  callerApp?: string; // Set by backend SDKs from the incoming x-shipbook-session header
   callerSessionId?: string;
   deviceInfo: DeviceInfo;
   time: string;  // ISO string, server parses as Date
@@ -121,19 +121,20 @@ export interface Session {
   logs?: BaseLog[];
 }
 
-// Cross-app session link: a client SDK sends "<appId>:<sessionId>" on its backend requests so
-// the receiving server's sessions record which app session's request created them.
+// Cross-app session link: client SDKs send "<version>:<appId>:<sessionId>" on requests to the customer's backend.
 export const SESSION_LINK_HEADER = 'x-shipbook-session';
+export const SESSION_LINK_VERSION = '1';
 
 export interface SessionLink {
   appId: string;
   sessionId: string;
 }
 
+// Unknown versions are rejected so older backend SDKs ignore future formats instead of storing garbage.
 export function parseSessionLinkHeader(value?: string): SessionLink | undefined {
   if (!value) return undefined;
-  const idx = value.indexOf(':');
-  if (idx < 1 || idx === value.length - 1) return undefined;
-  return { appId: value.slice(0, idx), sessionId: value.slice(idx + 1) };
+  const [version, appId, sessionId, ...rest] = value.split(':');
+  if (version !== SESSION_LINK_VERSION || !appId || !sessionId || rest.length) return undefined;
+  return { appId, sessionId };
 }
 

@@ -9,7 +9,8 @@
   ],
   "scripts": {
     "build": "node ../../scripts/inject-version.js client && tsc -b",
-    "clean": "tsc -b --clean"
+    "clean": "tsc -b --clean",
+    "test": "jest --preset ts-jest"
   },
   "repository": {
     "type": "git",

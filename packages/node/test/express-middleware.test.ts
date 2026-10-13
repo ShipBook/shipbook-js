@@ -99,7 +99,7 @@ describe('Express Middleware', () => {
     it('should extract callerSession from x-shipbook-session header', (done) => {
       const middleware = createExpressMiddleware();
       const req = createMockRequest({
-        headers: { 'x-shipbook-session': 'app-1:sess-abc' }
+        headers: { 'x-shipbook-session': '1:app-1:sess-abc' }
       });
       const res = createMockResponse();
 

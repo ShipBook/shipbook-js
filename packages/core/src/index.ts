@@ -26,6 +26,7 @@ export {
   SeverityUtil,
   Platform,
   SESSION_LINK_HEADER,
+  SESSION_LINK_VERSION,
   parseSessionLinkHeader
 } from './models';
 
