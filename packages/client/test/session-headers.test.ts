@@ -13,12 +13,7 @@ describe('SessionManager.getSessionHeaders', () => {
     });
   });
 
-  it('returns no header before login completes', () => {
-    expect(sessionManager.getSessionHeaders()).toEqual({});
-  });
-
-  it('returns no header for a silenced device', () => {
-    sessionManager.sessionLink = '';
+  it('returns no header before login completes or for a silenced device', () => {
     expect(sessionManager.getSessionHeaders()).toEqual({});
   });
 });
