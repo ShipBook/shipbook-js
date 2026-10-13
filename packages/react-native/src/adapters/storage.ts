@@ -29,7 +29,7 @@ class ReactNativeStorage implements IStorage {
     try {
       return JSON.parse(value) as T;
     } catch (error) {
-      InnerLog.e(`stored value for "${key}" is not valid JSON, removing it`, error);
+      InnerLog.w(`stored value for "${key}" is not valid JSON, removing it`, error);
       await AsyncStorage.removeItem(key);
       return undefined;
     }
