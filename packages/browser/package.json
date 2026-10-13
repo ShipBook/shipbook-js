@@ -1,6 +1,6 @@
 {
   "name": "@shipbook/browser",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Shipbook SDK for Browser/SPA - Remote logging and error tracking",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -28,7 +28,7 @@
   "author": "Elisha Sterngold",
   "license": "MIT",
   "dependencies": {
-    "@shipbook/client": "^1.0.0",
-    "@shipbook/core": "^2.0.0"
+    "@shipbook/client": "^1.1.0",
+    "@shipbook/core": "^2.2.0"
   }
 }

@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.2.0
+- Added the shared pieces for cross-app session linking: the `x-shipbook-session` header name and a `callerSessionLink` field on sessions. Used by `@shipbook/client` and `@shipbook/node`.
+
 ## 2.1.0
 - Send empty session stubs for HTTP requests, supporting the Node SDK's per-request sessions.
 - Test infrastructure fixes.

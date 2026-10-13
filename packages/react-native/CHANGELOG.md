@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.2.0
+- New `Shipbook.getSessionHeaders()`. Add it to requests to your own backend to link app sessions with your Node.js backend's sessions in the Shipbook console.
+
 ## 1.1.1
 - Handle non-`Error` values thrown to the global exception handler.
 
