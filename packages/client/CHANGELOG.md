@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.1
+- A corrupt cached config no longer blocks login. The SDK deletes it, falls back to the default config, and connects as usual.
+
 ## 1.1.0
 - New `getSessionHeaders()`. Spread it into requests to your own backend, and the Shipbook console links this app session to the backend session those requests create. It returns an empty object until login completes, so spreading it is always safe.
 

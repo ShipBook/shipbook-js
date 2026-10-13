@@ -1,6 +1,6 @@
 {
   "name": "@shipbook/react-native",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Shipbook SDK for React Native - Remote logging and crash reporting",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
