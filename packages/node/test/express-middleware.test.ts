@@ -96,6 +96,31 @@ describe('Express Middleware', () => {
       });
     });
 
+    it('should pass the x-shipbook-session header through raw', (done) => {
+      const middleware = createExpressMiddleware();
+      const req = createMockRequest({
+        headers: { 'x-shipbook-session': '1:app-1:sess-abc' }
+      });
+      const res = createMockResponse();
+
+      middleware(req, res, () => {
+        const ctx = requestContext.get();
+        expect(ctx?.callerSessionLink).toBe('1:app-1:sess-abc');
+        done();
+      });
+    });
+
+    it('should leave callerSessionLink unset without the header', (done) => {
+      const middleware = createExpressMiddleware();
+      const req = createMockRequest({ headers: {} });
+      const res = createMockResponse();
+
+      middleware(req, res, () => {
+        expect(requestContext.get()?.callerSessionLink).toBeUndefined();
+        done();
+      });
+    });
+
     it('should extract sessionId from express-session', (done) => {
       const middleware = createExpressMiddleware();
       const req = createMockRequest();
@@ -159,6 +184,17 @@ describe('Express Middleware', () => {
       middleware(req, res, () => {
         const ctx = requestContext.get();
         expect(ctx?.sessionId).toBe('custom-session-id');
+        done();
+      });
+    });
+
+    it('should use the caller link as the session id ahead of a custom extractor', (done) => {
+      const middleware = createExpressMiddleware({ session: () => 'custom-session-id' });
+      const req = createMockRequest({ headers: { 'x-shipbook-session': '1:app-1:sess-abc' } });
+      const res = createMockResponse();
+
+      middleware(req, res, () => {
+        expect(requestContext.get()?.sessionId).toBe('1:app-1:sess-abc');
         done();
       });
     });

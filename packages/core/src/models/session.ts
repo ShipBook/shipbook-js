@@ -106,6 +106,7 @@ export interface Session {
   metadata?: Record<string, unknown>;
   isBackground?: boolean;
   jobName?: string;
+  callerSessionLink?: string; // Raw x-shipbook-session header from the incoming request; the server parses it
   deviceInfo: DeviceInfo;
   time: string;  // ISO string, server parses as Date
   deviceTime?: string;  // ISO string, server parses as Date
@@ -118,4 +119,7 @@ export interface Session {
   userInfo?: User;
   logs?: BaseLog[];
 }
+
+// Cross-app session link: client SDKs forward the server-minted value; backend SDKs pass it back raw.
+export const SESSION_LINK_HEADER = 'x-shipbook-session';
 

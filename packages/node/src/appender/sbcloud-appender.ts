@@ -116,6 +116,7 @@ export class SBCloudAppender implements BaseAppender {
       metadata: ctx.metadata || { type: 'background' },
       isBackground: ctx.isBackground ?? true,
       jobName: ctx.jobName,
+      callerSessionLink: ctx.callerSessionLink,
       time: ctx.startTime.toISOString(),
       platform: Platform.NODE,
       deviceInfo: this.deviceInfo,

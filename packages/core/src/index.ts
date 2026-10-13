@@ -24,7 +24,8 @@ export {
   StackTraceElement,
   Severity,
   SeverityUtil,
-  Platform
+  Platform,
+  SESSION_LINK_HEADER
 } from './models';
 
 export type {

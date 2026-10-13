@@ -133,4 +133,12 @@ export default class Shipbook {
   static getUUID(): string | undefined {
     return sessionManager.getUUID();
   }
+
+  /**
+   * Headers to attach to requests toward your own backend so its Shipbook sessions
+   * link back to this app session ({} until login completes).
+   */
+  static getSessionHeaders(): Record<string, string> {
+    return sessionManager.getSessionHeaders();
+  }
 }

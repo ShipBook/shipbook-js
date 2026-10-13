@@ -15,6 +15,7 @@ export class RequestContextManager {
     const fullContext: RequestContext = {
       sessionId: context.sessionId || randomUUID(),
       traceId: context.traceId,  // Only set if provided (from x-request-id header)
+      callerSessionLink: context.callerSessionLink,
       user: context.user,
       metadata: context.metadata,
       startTime: new Date(),

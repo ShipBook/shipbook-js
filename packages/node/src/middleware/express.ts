@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { randomUUID } from 'crypto';
 import type { User, RequestContext } from '@shipbook/core';
-import { logManager } from '@shipbook/core';
+import { logManager, SESSION_LINK_HEADER } from '@shipbook/core';
 import { requestContext } from '../context/request-context';
 
 export interface ExpressExtractors {
@@ -34,9 +34,12 @@ export function createExpressMiddleware(extractors: ExpressExtractors = {}) {
   const merged = { ...defaultExtractors, ...extractors };
 
   return function shipbookMiddleware(req: Request, res: Response, next: NextFunction) {
+    const callerSessionLink = req.headers[SESSION_LINK_HEADER] as string | undefined;
     const context: RequestContext = {
-      sessionId: merged.session?.(req) || randomUUID(),
+      // A linked request joins its caller's session, so every server session has exactly one caller.
+      sessionId: callerSessionLink || merged.session?.(req) || randomUUID(),
       traceId: merged.trace?.(req),
+      callerSessionLink,
       user: merged.user?.(req),
       metadata: {
         method: req.method,

@@ -234,6 +234,20 @@ describe('SBCloudAppender', () => {
       expect(sessions[0].logs[0].message).toBe('real log');
     });
 
+    it('stamps the raw callerSessionLink from the context onto the session', async () => {
+      await appender.ensureSession({
+        sessionId: 'linked-session',
+        startTime: new Date(),
+        isBackground: false,
+        callerSessionLink: '1:client-app:client-sess'
+      });
+      appender.flush();
+      await tick();
+
+      const sessions = (requestSpy.mock.calls[0][1] as { sessions: any[] }).sessions;
+      expect(sessions[0].callerSessionLink).toBe('1:client-app:client-sess');
+    });
+
     it('attaches stub alongside other sessions with logs in the same ingest', async () => {
       // Use Info (below default flushSeverity) so the push doesn't trigger an immediate
       // flush; otherwise the has-log session would ship before ensureSession() runs.
