@@ -133,13 +133,19 @@ class SessionManager {
       throw new Error('SessionManager not configured. Call configure() first.');
     }
 
-    let config = await this.storage.getObj<ConfigResponse>('config');
-    if (!config) config = defaultConfig;
-
-    this.readConfig(config);
     this.appId = appId;
     this.appKey = appKey;
     this.loginObj = new Login(appId, appKey, this.platform, this.storage, this.sdkVersion, options);
+
+    let config: ConfigResponse | undefined;
+    try {
+      config = await this.storage.getObj<ConfigResponse>('config');
+    } catch (e) {
+      // A corrupt cached config must never block login, otherwise the SDK stays silent until app data is cleared.
+      InnerLog.w('cached config is corrupt, deleting it and falling back to the default config', e);
+      await this.storage.removeItem('config');
+    }
+    this.readConfig(config ?? defaultConfig);
 
     return this.innerLogin();
   }
