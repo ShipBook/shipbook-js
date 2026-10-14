@@ -1,6 +1,6 @@
 import { createExpressMiddleware, ExpressExtractors } from '../src/middleware/express';
 import { requestContext } from '../src/context/request-context';
-import { logManager } from '@shipbook/core';
+import { logManager, RequestEvent, RequestEventPhase } from '@shipbook/core';
 import type { Request, Response, NextFunction } from 'express';
 
 // Mock request factory
@@ -17,6 +17,7 @@ const createMockRequest = (overrides: Partial<Request> = {}): Request => ({
 
 interface MockResponse extends Response {
   __triggerClose?: () => void;
+  __trigger: (event: string) => void;
 }
 
 // Mock response — captures the 'close' listener so tests can fire it explicitly.
@@ -27,7 +28,8 @@ const createMockResponse = (): MockResponse => {
       (listeners[event] ||= []).push(cb);
       return res;
     },
-    __triggerClose: () => listeners['close']?.forEach(cb => cb())
+    __triggerClose: () => listeners['close']?.forEach(cb => cb()),
+    __trigger: (event: string) => listeners[event]?.forEach(cb => cb())
   } as unknown as MockResponse;
   return res;
 };
@@ -307,6 +309,62 @@ describe('Express Middleware', () => {
       const res = createMockResponse();
 
       expect(() => middleware(req, res, () => { /* noop */ })).not.toThrow();
+    });
+  });
+
+  describe('request events', () => {
+    let pushSpy: jest.SpyInstance;
+    let pushed: { event: RequestEvent; requestId?: string; sessionId?: string }[];
+
+    beforeEach(() => {
+      pushed = [];
+      jest.spyOn(logManager, 'ensureSession').mockImplementation(() => {});
+      pushSpy = jest.spyOn(logManager, 'push').mockImplementation((log) => {
+        const ctx = requestContext.get();
+        pushed.push({ event: log as RequestEvent, requestId: ctx?.requestId, sessionId: ctx?.sessionId });
+      });
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('emits a start event with method and path inside the request context', () => {
+      const middleware = createExpressMiddleware();
+      middleware(createMockRequest({ method: 'POST', path: '/api/checkout' }), createMockResponse(), () => {});
+
+      expect(pushSpy).toHaveBeenCalledTimes(1);
+      const [start] = pushed;
+      expect(start.event).toBeInstanceOf(RequestEvent);
+      expect(start.event).toMatchObject({ type: 'requestEvent', event: RequestEventPhase.Start, method: 'POST', path: '/api/checkout' });
+      expect(start.requestId).toMatch(/^[0-9a-f-]{36}$/);
+    });
+
+    it('emits an end event with status and duration on finish, in the same request', () => {
+      const middleware = createExpressMiddleware();
+      const res = createMockResponse();
+      (res as { statusCode: number }).statusCode = 402;
+      middleware(createMockRequest(), res, () => {});
+
+      res.__trigger('finish');
+
+      expect(pushed).toHaveLength(2);
+      const [start, end] = pushed;
+      expect(end.event).toMatchObject({ event: RequestEventPhase.End, status: 402 });
+      expect(end.event.duration).toBeGreaterThanOrEqual(0);
+      expect(end.requestId).toBe(start.requestId);
+      expect(end.sessionId).toBe(start.sessionId);
+    });
+
+    it('mints a different requestId per request in the same session', () => {
+      const middleware = createExpressMiddleware();
+      const req = createMockRequest();
+      (req as any).sessionID = 'shared-session';
+      middleware(req, createMockResponse(), () => {});
+      middleware(req, createMockResponse(), () => {});
+
+      expect(pushed[0].sessionId).toBe(pushed[1].sessionId);
+      expect(pushed[0].requestId).not.toBe(pushed[1].requestId);
     });
   });
 

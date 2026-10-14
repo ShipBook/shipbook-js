@@ -3,6 +3,8 @@ export type { ThreadInfo } from './base-log';
 export { default as BaseEvent } from './base-event';
 export { default as AppEvent } from './app-event';
 export { default as ScreenEvent } from './screen-event';
+export { default as RequestEvent, RequestEventPhase } from './request-event';
+export type { RequestEventDetails } from './request-event';
 export { default as Message } from './message';
 export { default as Exception, StackTraceElement } from './exception';
 export { Severity, SeverityUtil } from './severity';

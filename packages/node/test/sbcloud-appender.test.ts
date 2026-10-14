@@ -89,6 +89,17 @@ describe('SBCloudAppender', () => {
       expect(session.logs[0].traceId).toBe('trace-abc');
     });
 
+    it('should attach requestId to the log', async () => {
+      await requestContext.run({ sessionId: 'request-session', requestId: 'req-abc' }, async () => {
+        await appender.push(new Message('request log', Severity.Info, 'Tag'));
+      });
+      appender.flush();
+      await tick();
+
+      const session = (requestSpy.mock.calls[0][1] as { sessions: any[] }).sessions[0];
+      expect(session.logs[0].requestId).toBe('req-abc');
+    });
+
     it('should attach user info from context', async () => {
       const user = { userId: 'u1', userName: 'TestUser' };
       await requestContext.run({ sessionId: 'user-session', user }, async () => {

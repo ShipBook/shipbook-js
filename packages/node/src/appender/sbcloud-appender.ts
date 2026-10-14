@@ -95,7 +95,7 @@ export class SBCloudAppender implements BaseAppender {
 
     await this.ensureSession(ctx);
 
-    const logWithTrace = { ...log, traceId: ctx.traceId };
+    const logWithTrace = { ...log, traceId: ctx.traceId, requestId: ctx.requestId };
     await storage.pushArrayObj(QUEUE_KEY, {
       type: RecordType.Log,
       sessionId: ctx.sessionId,
