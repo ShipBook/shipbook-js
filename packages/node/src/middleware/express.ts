@@ -58,7 +58,7 @@ export function createExpressMiddleware(extractors: ExpressExtractors = {}) {
     logManager.ensureSession(context);
 
     requestContext.run(context, () => {
-      trackRequest(context, res, req.method, req.path);
+      trackRequest(context, res, req.method, () => req.route ? req.baseUrl + req.route.path : req.path);
       next();
     });
   };

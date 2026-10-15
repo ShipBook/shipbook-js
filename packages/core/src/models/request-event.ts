@@ -7,17 +7,19 @@ export enum RequestEventPhase {
 }
 
 export interface RequestEventDetails {
-  method?: string;
-  path?: string;
+  method: string;
+  route: string;
+  startTime?: Date;
   status?: number;
   duration?: number;
 }
 
-// Two write-once events per backend request (start, end); the server groups them with the request's logs by requestId.
+// Two write-once events per backend request; the server turns them into one request record, so the end repeats everything.
 export default class RequestEvent extends BaseEvent {
   event: RequestEventPhase;
-  method?: string;
-  path?: string;
+  method: string;
+  route: string;
+  startTime?: Date;
   status?: number;
   duration?: number;
 
@@ -25,7 +27,8 @@ export default class RequestEvent extends BaseEvent {
     super(LogType.RequestEvent);
     this.event = event;
     this.method = details.method;
-    this.path = details.path;
+    this.route = details.route;
+    this.startTime = details.startTime;
     this.status = details.status;
     this.duration = details.duration;
   }

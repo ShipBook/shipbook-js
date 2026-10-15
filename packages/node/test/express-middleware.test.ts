@@ -336,7 +336,7 @@ describe('Express Middleware', () => {
       expect(pushSpy).toHaveBeenCalledTimes(1);
       const [start] = pushed;
       expect(start.event).toBeInstanceOf(RequestEvent);
-      expect(start.event).toMatchObject({ type: 'requestEvent', event: RequestEventPhase.Start, method: 'POST', path: '/api/checkout' });
+      expect(start.event).toMatchObject({ type: 'requestEvent', event: RequestEventPhase.Start, method: 'POST', route: '/api/checkout' });
       expect(start.requestId).toMatch(/^[0-9a-f-]{36}$/);
     });
 
@@ -350,10 +350,24 @@ describe('Express Middleware', () => {
 
       expect(pushed).toHaveLength(2);
       const [start, end] = pushed;
-      expect(end.event).toMatchObject({ event: RequestEventPhase.End, status: 402 });
+      expect(end.event).toMatchObject({ event: RequestEventPhase.End, method: 'GET', route: '/api/test', status: 402 });
+      expect(end.event.startTime).toBeInstanceOf(Date);
       expect(end.event.duration).toBeGreaterThanOrEqual(0);
       expect(end.requestId).toBe(start.requestId);
       expect(end.sessionId).toBe(start.sessionId);
+    });
+
+    it('reports the route template once routing resolved it', () => {
+      const middleware = createExpressMiddleware();
+      const req = createMockRequest({ path: '/api/orders/8812' });
+      const res = createMockResponse();
+      middleware(req, res, () => {});
+      Object.assign(req, { baseUrl: '/api', route: { path: '/orders/:id' } });
+
+      res.__trigger('finish');
+
+      expect(pushed[0].event.route).toBe('/api/orders/8812');
+      expect(pushed[1].event.route).toBe('/api/orders/:id');
     });
 
     it('mints a different requestId per request in the same session', () => {

@@ -47,7 +47,7 @@ export function createNestInterceptor(extractors: NestExtractors = {}) {
       const { Observable: RxObservable } = require('rxjs');
       return new RxObservable((subscriber: any) => {
         requestContext.run(ctx, () => {
-          trackRequest(ctx, context.switchToHttp().getResponse(), req.method, req.path);
+          trackRequest(ctx, context.switchToHttp().getResponse(), req.method, () => req.route?.path ?? req.path);
           next.handle().subscribe(subscriber);
         });
       });

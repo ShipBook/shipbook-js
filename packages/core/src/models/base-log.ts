@@ -23,6 +23,7 @@ export default class BaseLog {
   type: LogType;
   traceId?: string;
   requestId?: string;
+  requestTime?: Date;
   threadInfo?: ThreadInfo;
 
   constructor(type: LogType) {

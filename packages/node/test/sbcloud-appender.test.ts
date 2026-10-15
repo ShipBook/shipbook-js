@@ -98,6 +98,7 @@ describe('SBCloudAppender', () => {
 
       const session = (requestSpy.mock.calls[0][1] as { sessions: any[] }).sessions[0];
       expect(session.logs[0].requestId).toBe('req-abc');
+      expect(session.logs[0].requestTime).toBeDefined();
     });
 
     it('should attach user info from context', async () => {

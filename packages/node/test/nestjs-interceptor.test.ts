@@ -57,8 +57,8 @@ describe('Nest Interceptor', () => {
     pushSpy.mockRestore();
 
     expect(pushed.map(p => p.event)).toMatchObject([
-      { event: RequestEventPhase.Start, method: 'GET', path: '/api/rates' },
-      { event: RequestEventPhase.End, status: 500 }
+      { event: RequestEventPhase.Start, method: 'GET', route: '/api/rates' },
+      { event: RequestEventPhase.End, method: 'GET', route: '/api/rates', status: 500 }
     ]);
     expect(pushed[0].requestId).toBeDefined();
     expect(pushed[1].requestId).toBe(pushed[0].requestId);
