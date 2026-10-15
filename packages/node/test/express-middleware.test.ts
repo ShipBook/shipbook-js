@@ -352,6 +352,7 @@ describe('Express Middleware', () => {
       const [start, end] = pushed;
       expect(end.event).toMatchObject({ event: RequestEventPhase.End, method: 'GET', route: '/api/test', status: 402 });
       expect(end.event.startTime).toBeInstanceOf(Date);
+      expect(end.event.startOrderId).toBe(start.event.orderId);
       expect(end.event.duration).toBeGreaterThanOrEqual(0);
       expect(end.requestId).toBe(start.requestId);
       expect(end.sessionId).toBe(start.sessionId);

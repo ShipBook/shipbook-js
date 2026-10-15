@@ -10,6 +10,7 @@ export interface RequestEventDetails {
   method: string;
   route: string;
   startTime?: Date;
+  startOrderId?: number;
   status?: number;
   duration?: number;
 }
@@ -20,6 +21,7 @@ export default class RequestEvent extends BaseEvent {
   method: string;
   route: string;
   startTime?: Date;
+  startOrderId?: number;
   status?: number;
   duration?: number;
 
@@ -29,6 +31,7 @@ export default class RequestEvent extends BaseEvent {
     this.method = details.method;
     this.route = details.route;
     this.startTime = details.startTime;
+    this.startOrderId = details.startOrderId;
     this.status = details.status;
     this.duration = details.duration;
   }
