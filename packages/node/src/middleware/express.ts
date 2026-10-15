@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import type { User, RequestContext } from '@shipbook/core';
 import { logManager, SESSION_LINK_HEADER } from '@shipbook/core';
 import { requestContext } from '../context/request-context';
+import { trackRequest } from './request-events';
 
 export interface ExpressExtractors {
   user?: (req: Request) => User | undefined;
@@ -39,6 +40,7 @@ export function createExpressMiddleware(extractors: ExpressExtractors = {}) {
       // A linked request joins its caller's session, so every server session has exactly one caller.
       sessionId: callerSessionLink || merged.session?.(req) || randomUUID(),
       traceId: merged.trace?.(req),
+      requestId: randomUUID(),
       callerSessionLink,
       user: merged.user?.(req),
       metadata: {
@@ -55,6 +57,9 @@ export function createExpressMiddleware(extractors: ExpressExtractors = {}) {
     // Without this, sessions whose logs all fall below flushSeverity never reach the server.
     logManager.ensureSession(context);
 
-    requestContext.run(context, () => next());
+    requestContext.run(context, () => {
+      trackRequest(context, res, req.method, () => req.route ? req.baseUrl + req.route.path : req.path);
+      next();
+    });
   };
 }

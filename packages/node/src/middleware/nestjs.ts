@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import type { User, RequestContext } from '@shipbook/core';
 import { logManager, SESSION_LINK_HEADER } from '@shipbook/core';
 import { requestContext } from '../context/request-context';
+import { trackRequest } from './request-events';
 
 export interface NestExtractors {
   user?: (ctx: ExecutionContext) => User | undefined;
@@ -27,6 +28,7 @@ export function createNestInterceptor(extractors: NestExtractors = {}) {
         // A linked request joins its caller's session, so every server session has exactly one caller.
         sessionId: callerSessionLink || extractors.session?.(context) || req.sessionID || randomUUID(),
         traceId: extractors.trace?.(context) || req.headers['x-request-id'],
+        requestId: randomUUID(),
         callerSessionLink,
         user,
         metadata: {
@@ -45,6 +47,7 @@ export function createNestInterceptor(extractors: NestExtractors = {}) {
       const { Observable: RxObservable } = require('rxjs');
       return new RxObservable((subscriber: any) => {
         requestContext.run(ctx, () => {
+          trackRequest(ctx, context.switchToHttp().getResponse(), req.method, () => req.route?.path ?? req.path);
           next.handle().subscribe(subscriber);
         });
       });

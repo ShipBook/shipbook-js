@@ -2,7 +2,8 @@ export enum LogType {
   Message = 'message',
   Exception = 'exception',
   AppEvent = 'appEvent',
-  ScreenEvent = 'screenEvent'
+  ScreenEvent = 'screenEvent',
+  RequestEvent = 'requestEvent'
 }
 
 /**
@@ -21,6 +22,8 @@ export default class BaseLog {
   orderId: number;
   type: LogType;
   traceId?: string;
+  requestId?: string;
+  requestTime?: Date;
   threadInfo?: ThreadInfo;
 
   constructor(type: LogType) {

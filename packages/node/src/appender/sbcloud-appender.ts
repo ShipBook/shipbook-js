@@ -95,7 +95,8 @@ export class SBCloudAppender implements BaseAppender {
 
     await this.ensureSession(ctx);
 
-    const logWithTrace = { ...log, traceId: ctx.traceId };
+    // requestTime keeps a request's logs contiguous in the server's display-order sort.
+    const logWithTrace = { ...log, traceId: ctx.traceId, requestId: ctx.requestId, requestTime: ctx.requestId ? ctx.startTime : undefined };
     await storage.pushArrayObj(QUEUE_KEY, {
       type: RecordType.Log,
       sessionId: ctx.sessionId,

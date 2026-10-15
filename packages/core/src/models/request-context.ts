@@ -7,6 +7,7 @@ import type User from './user';
 export interface RequestContext {
   sessionId: string;       // express-session ID, job ID, or generated UUID
   traceId?: string;        // Optional - only for HTTP requests (x-request-id)
+  requestId?: string;      // Minted per HTTP request; groups the request's logs and its start/end events
   callerSessionLink?: string;  // Raw x-shipbook-session header; parsed by the server
   user?: User;             // Full user object (userId, userName, email, etc.)
   metadata?: Record<string, unknown>;  // method, path, ip, etc.
