@@ -42,15 +42,6 @@ export class SBCloudAppender implements BaseAppender {
   private maxTime = 3;  // seconds
   private flushSeverity = Severity.Verbose;
   private flushSize = 1000;
-  // One background session per process lifecycle — id + start time created together,
-  // so any push that falls back to this context describes the same logical entity.
-  private backgroundContext: RequestContext = {
-    sessionId: randomUUID(),
-    startTime: new Date(),
-    isBackground: true,
-    metadata: { type: 'background' }
-  };
-
   private deviceInfo: DeviceInfo;
   private osInfo: OsInfo;
   private appInfo: AppVersionInfo;
@@ -91,7 +82,7 @@ export class SBCloudAppender implements BaseAppender {
 
   async push(log: BaseLog): Promise<void> {
     InnerLog.d('push() called');
-    const ctx = requestContext.get() ?? this.backgroundContext;
+    const ctx = requestContext.get() ?? requestContext.background;
 
     await this.ensureSession(ctx);
 

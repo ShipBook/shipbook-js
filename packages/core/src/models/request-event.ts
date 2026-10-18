@@ -30,9 +30,10 @@ export default class RequestEvent extends BaseEvent {
   status?: number;
   outcome?: RequestOutcome;
   duration?: number;
+  errorCode?: number; // rpc: the JSON-RPC error code
 
   constructor(event: RequestEventPhase, kind: RequestKind, method?: string, route?: string, operation?: string,
-    startTime?: Date, startOrderId?: number, status?: number, outcome?: RequestOutcome, duration?: number) {
+    startTime?: Date, startOrderId?: number, status?: number, outcome?: RequestOutcome, duration?: number, errorCode?: number) {
     super(LogType.RequestEvent);
     this.event = event;
     this.kind = kind;
@@ -44,5 +45,6 @@ export default class RequestEvent extends BaseEvent {
     this.status = status;
     this.outcome = outcome;
     this.duration = duration;
+    this.errorCode = errorCode;
   }
 }
