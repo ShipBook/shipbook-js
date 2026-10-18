@@ -10,6 +10,19 @@ export interface JobContextOptions {
 export class RequestContextManager {
   private asyncStorage = new AsyncLocalStorage<RequestContext>();
 
+  // One background session per process lifecycle: where logs (and requests) outside any other context belong.
+  readonly background: RequestContext = {
+    sessionId: randomUUID(),
+    startTime: new Date(),
+    isBackground: true,
+    metadata: { type: 'background' }
+  };
+
+  // Runs fn in exactly this context, e.g. to re-enter a request's context from an event fired outside it.
+  enter<T>(context: RequestContext, fn: () => T): T {
+    return this.asyncStorage.run(context, fn);
+  }
+
   // For HTTP requests (via middleware)
   run<T>(context: Partial<RequestContext>, fn: () => T): T {
     const fullContext: RequestContext = {

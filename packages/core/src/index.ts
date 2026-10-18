@@ -21,6 +21,8 @@ export {
   ScreenEvent,
   RequestEvent,
   RequestEventPhase,
+  RequestKind,
+  RequestOutcome,
   Message,
   Exception,
   StackTraceElement,

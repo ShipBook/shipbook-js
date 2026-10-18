@@ -8,6 +8,8 @@ import { createNestInterceptor } from './middleware/nestjs';
 import { SBCloudAppender } from './appender/sbcloud-appender';
 import { authManager } from './auth/auth-manager';
 import { requestContext } from './context/request-context';
+import { runInRequest } from './middleware/request-events';
+import { instrumentMcpTransport } from './mcp/mcp-transport';
 
 const DEFAULT_CONFIG_REFRESH_INTERVAL = 300; // 5 minutes in seconds
 
@@ -148,6 +150,12 @@ class ShipbookNode {
     return requestContext.runJob(options, fn);
   }
 
+  // Work that isn't an HTTP request (a queue message, a WebSocket message) read as one request of the current session
+  runInRequest = runInRequest;
+
+  // Wrap an MCP server's transport (stdio, WebSocket, …): server.connect(Shipbook.mcpTransport(new StdioServerTransport()))
+  mcpTransport = instrumentMcpTransport;
+
   // Access to request context (for advanced use)
   get context() {
     return requestContext;
@@ -172,6 +180,7 @@ export {
   Log,
   Severity,
   SeverityUtil,
+  RequestKind,
   type User,
   type IStorage,
   type IPlatform,

@@ -1,6 +1,6 @@
 import type { ExecutionContext, CallHandler } from '@nestjs/common';
 import type { RequestContext } from '@shipbook/core';
-import { logManager, RequestEvent, RequestEventPhase } from '@shipbook/core';
+import { logManager, RequestEvent, RequestEventPhase, RequestKind, RequestOutcome } from '@shipbook/core';
 import { requestContext } from '../src/context/request-context';
 import { createNestInterceptor } from '../src/middleware/nestjs';
 
@@ -58,7 +58,7 @@ describe('Nest Interceptor', () => {
 
     expect(pushed.map(p => p.event)).toMatchObject([
       { event: RequestEventPhase.Start, method: 'GET', route: '/api/rates' },
-      { event: RequestEventPhase.End, method: 'GET', route: '/api/rates', status: 500 }
+      { event: RequestEventPhase.End, kind: RequestKind.Http, method: 'GET', route: '/api/rates', status: 500, outcome: RequestOutcome.Error }
     ]);
     expect(pushed[0].requestId).toBeDefined();
     expect(pushed[1].requestId).toBe(pushed[0].requestId);
