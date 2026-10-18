@@ -1,7 +1,7 @@
 import { SBCloudAppender } from '../src/appender/sbcloud-appender';
 import { requestContext } from '../src/context/request-context';
 import { storage } from '../src/adapters/storage';
-import { Message, Severity, connectionClient, HttpMethod } from '@shipbook/core';
+import { Message, Exception, RequestEvent, RequestEventPhase, RequestKind, Severity, connectionClient, HttpMethod } from '@shipbook/core';
 
 const tick = (ms = 50) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -197,6 +197,41 @@ describe('SBCloudAppender', () => {
 
       expect(requestSpy).not.toHaveBeenCalled();
       noTokenAppender.destructor();
+    });
+
+    it('holds events and info logs for the timer instead of sending each at once', async () => {
+      await requestContext.run({ sessionId: 'quiet-request', requestId: 'req-1' }, async () => {
+        await appender.push(new RequestEvent(RequestEventPhase.Start, RequestKind.Http, 'GET', '/health'));
+        await appender.push(new Message('info', Severity.Info, 'Tag'));
+        await appender.push(new RequestEvent(RequestEventPhase.End, RequestKind.Http, 'GET', '/health'));
+      });
+      await tick();
+
+      expect(requestSpy).not.toHaveBeenCalled();
+    });
+
+    it('sends at once for a warning, an error and an exception', async () => {
+      await appender.push(new Message('warning', Severity.Warning, 'Tag'));
+      await tick();
+      await appender.push(new Message('error', Severity.Error, 'Tag'));
+      await tick();
+      await appender.push(new Exception('TypeError', 'boom', 'at x'));
+      await tick();
+
+      expect(requestSpy).toHaveBeenCalledTimes(3);
+    });
+
+    it('sends when the bulk reaches flushSize', async () => {
+      appender.update({ appenders: [], loggers: [], flushSize: 3 });
+      for (const message of ['1', '2']) await appender.push(new Message(message, Severity.Info, 'Tag'));
+      await tick();
+      expect(requestSpy).not.toHaveBeenCalled();
+
+      await appender.push(new Message('3', Severity.Info, 'Tag'));
+      await tick();
+
+      expect(requestSpy).toHaveBeenCalledTimes(1);
+      expect((requestSpy.mock.calls[0][1] as { sessions: any[] }).sessions[0].logs).toHaveLength(3);
     });
 
     it('should not call connectionClient when no batches', async () => {

@@ -1,5 +1,5 @@
-import type { BaseAppender, BaseLog, ConfigResponse, Session, DeviceInfo, OsInfo, AppVersionInfo, VersionInfo, RequestContext } from '@shipbook/core';
-import { Severity, SeverityUtil, InnerLog, connectionClient, HttpMethod, CORE_VERSION, Platform } from '@shipbook/core';
+import type { BaseAppender, BaseLog, Message, ConfigResponse, Session, DeviceInfo, OsInfo, AppVersionInfo, VersionInfo, RequestContext } from '@shipbook/core';
+import { Severity, SeverityUtil, LogType, InnerLog, connectionClient, HttpMethod, CORE_VERSION, Platform } from '@shipbook/core';
 import { PLATFORM_VERSION } from '../generated/version';
 import { requestContext } from '../context/request-context';
 import { storage } from '../adapters/storage';
@@ -38,6 +38,7 @@ export class SBCloudAppender implements BaseAppender {
   // flush window. Cleared on each send() so the next window starts fresh. Lives only in
   // memory — no storage involvement. Sync Set ops make this race-free within the JS event loop.
   private emittedSessions = new Set<string>();
+  private queuedLogs = 0;
   private timer?: ReturnType<typeof setTimeout>;
   private maxTime = 3;  // seconds
   private flushSeverity = Severity.Verbose;
@@ -93,6 +94,7 @@ export class SBCloudAppender implements BaseAppender {
       sessionId: ctx.sessionId,
       data: logWithTrace
     });
+    this.queuedLogs++;
 
     this.scheduleFlush(log);
   }
@@ -125,11 +127,11 @@ export class SBCloudAppender implements BaseAppender {
     });
   }
 
+  // Only exceptions, errors and warnings ship at once; events have no severity and wait for the timer or a full bulk.
   private scheduleFlush(log: BaseLog): void {
-    // Flush immediately only for high-severity logs (Warning, Error) so we don't flood send() on every push
-    const logSeverityValue = 'severity' in log ? SeverityUtil.value((log as any).severity) : 0;
-    const warningValue = SeverityUtil.value(Severity.Warning);
-    if (logSeverityValue <= warningValue) {
+    const urgent = log.type === LogType.Exception
+      || (log.type === LogType.Message && SeverityUtil.value((log as Message).severity) <= SeverityUtil.value(Severity.Warning));
+    if (urgent || this.queuedLogs >= this.flushSize) {
       this.flush();
       return;
     }
@@ -161,6 +163,7 @@ export class SBCloudAppender implements BaseAppender {
     // get picked up by the next flush.
     const records = await storage.popAllArrayObj(QUEUE_KEY) as QueueRecord[];
     this.emittedSessions.clear();
+    this.queuedLogs = 0;
 
     if (records.length === 0) {
       InnerLog.d('No sessions to send');
