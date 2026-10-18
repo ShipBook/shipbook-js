@@ -1,6 +1,6 @@
 import { createExpressMiddleware, ExpressExtractors } from '../src/middleware/express';
 import { requestContext } from '../src/context/request-context';
-import { logManager, RequestEvent, RequestEventPhase } from '@shipbook/core';
+import { logManager, RequestEvent, RequestEventPhase, RequestKind, RequestOutcome } from '@shipbook/core';
 import type { Request, Response, NextFunction } from 'express';
 
 // Mock request factory
@@ -350,7 +350,7 @@ describe('Express Middleware', () => {
 
       expect(pushed).toHaveLength(2);
       const [start, end] = pushed;
-      expect(end.event).toMatchObject({ event: RequestEventPhase.End, method: 'GET', route: '/api/test', status: 402 });
+      expect(end.event).toMatchObject({ event: RequestEventPhase.End, kind: RequestKind.Http, method: 'GET', route: '/api/test', status: 402, outcome: RequestOutcome.Ok });
       expect(end.event.startTime).toBeInstanceOf(Date);
       expect(end.event.startOrderId).toBe(start.event.orderId);
       expect(end.event.duration).toBeGreaterThanOrEqual(0);

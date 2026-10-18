@@ -6,27 +6,43 @@ export enum RequestEventPhase {
   End = 'end'
 }
 
+// The protocol a request came in on; each kind fills its own detail fields (http: method/route/status).
+export enum RequestKind {
+  Http = 'http',
+  Rpc = 'rpc'
+}
+
+// Whether a request failed, the same for every kind; each kind maps its own result onto it.
+export enum RequestOutcome {
+  Ok = 'ok',
+  Error = 'error'
+}
+
 // Two write-once events per backend request; the server turns them into one request record, so the end repeats everything.
 export default class RequestEvent extends BaseEvent {
   event: RequestEventPhase;
-  method: string;
-  route: string;
+  kind: RequestKind;
+  method?: string;
+  route?: string;
   operation?: string; // what a multiplexed endpoint was asked to do, e.g. an MCP 'tools/call get-logs'
   startTime?: Date;
   startOrderId?: number;
   status?: number;
+  outcome?: RequestOutcome;
   duration?: number;
 
-  constructor(event: RequestEventPhase, method: string, route: string, operation?: string,
-    startTime?: Date, startOrderId?: number, status?: number, duration?: number) {
+  constructor(event: RequestEventPhase, kind: RequestKind, method?: string, route?: string, operation?: string,
+    startTime?: Date, startOrderId?: number, status?: number, outcome?: RequestOutcome, duration?: number) {
     super(LogType.RequestEvent);
     this.event = event;
+    this.kind = kind;
     this.method = method;
     this.route = route;
     this.operation = operation;
     this.startTime = startTime;
     this.startOrderId = startOrderId;
     this.status = status;
+    this.outcome = outcome;
     this.duration = duration;
   }
 }

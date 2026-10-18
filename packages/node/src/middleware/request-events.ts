@@ -1,6 +1,6 @@
 import type { ServerResponse } from 'http';
 import type { RequestContext } from '@shipbook/core';
-import { logManager, RequestEvent, RequestEventPhase } from '@shipbook/core';
+import { logManager, RequestEvent, RequestEventPhase, RequestKind, RequestOutcome } from '@shipbook/core';
 import { requestContext } from '../context/request-context';
 
 // MCP (any JSON-RPC) multiplexes every call on one endpoint; the method and its tool/prompt/resource tell the calls apart.
@@ -15,11 +15,13 @@ function jsonRpcOperation(body: unknown) {
 
 // Call inside the request's context; 'finish' fires outside it (re-entered for the end), and routing and body parsing may only be done by then.
 export function trackRequest(ctx: RequestContext, res: ServerResponse, method: string, route: () => string, body: () => unknown) {
-  const start = new RequestEvent(RequestEventPhase.Start, method, route(), jsonRpcOperation(body()));
+  const start = new RequestEvent(RequestEventPhase.Start, RequestKind.Http, method, route(), jsonRpcOperation(body()));
   logManager.push(start);
   res.on('finish', () => {
     const duration = Date.now() - ctx.startTime.getTime();
-    requestContext.run(ctx, () => logManager.push(new RequestEvent(RequestEventPhase.End, method, route(), jsonRpcOperation(body()),
-      ctx.startTime, start.orderId, res.statusCode, duration)));
+    // As for an HTTP server span: a 4xx is the client's mistake, only a 5xx failed the request.
+    const outcome = res.statusCode >= 500 ? RequestOutcome.Error : RequestOutcome.Ok;
+    requestContext.run(ctx, () => logManager.push(new RequestEvent(RequestEventPhase.End, RequestKind.Http, method, route(), jsonRpcOperation(body()),
+      ctx.startTime, start.orderId, res.statusCode, outcome, duration)));
   });
 }
