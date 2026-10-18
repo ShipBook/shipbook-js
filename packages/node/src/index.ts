@@ -180,6 +180,7 @@ export {
   Log,
   Severity,
   SeverityUtil,
+  RequestKind,
   type User,
   type IStorage,
   type IPlatform,
