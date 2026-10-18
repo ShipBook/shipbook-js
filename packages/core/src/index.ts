@@ -19,6 +19,8 @@ export {
   BaseEvent,
   AppEvent,
   ScreenEvent,
+  RequestEvent,
+  RequestEventPhase,
   Message,
   Exception,
   StackTraceElement,
