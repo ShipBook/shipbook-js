@@ -16,6 +16,9 @@ export function createNestInterceptor(extractors: NestExtractors = {}) {
   class ShipbookInterceptor implements NestInterceptor {
     intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
       const req = context.switchToHttp().getRequest();
+      const res = context.switchToHttp().getResponse();
+      // Nest runs on Express or Fastify: a Fastify request has no path (url carries the query string), and its reply wraps the Node response in raw.
+      const path: string = req.path ?? req.url?.split('?')[0];
 
       const user = extractors.user?.(context) || (req.user ? {
         userId: req.user.id || req.user.userId,
@@ -33,7 +36,7 @@ export function createNestInterceptor(extractors: NestExtractors = {}) {
         user,
         metadata: {
           method: req.method,
-          path: req.path,
+          path,
           ip: req.ip
         },
         startTime: new Date(),
@@ -47,7 +50,7 @@ export function createNestInterceptor(extractors: NestExtractors = {}) {
       const { Observable: RxObservable } = require('rxjs');
       return new RxObservable((subscriber: any) => {
         requestContext.run(ctx, () => {
-          trackRequest(ctx, context.switchToHttp().getResponse(), req.method, () => req.route?.path ?? req.path, () => req.body);
+          trackRequest(ctx, res.raw ?? res, req.method, () => req.route?.path ?? req.routeOptions?.url ?? path, () => req.body);
           next.handle().subscribe(subscriber);
         });
       });

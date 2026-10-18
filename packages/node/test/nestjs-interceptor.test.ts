@@ -64,6 +64,27 @@ describe('Nest Interceptor', () => {
     expect(pushed[1].requestId).toBe(pushed[0].requestId);
   });
 
+  // Fastify's reply has no on(); the Node response is reply.raw. Its request has no path, but url and routeOptions.url.
+  it('tracks requests when Nest runs on Fastify', () => {
+    const pushed: RequestEvent[] = [];
+    const pushSpy = jest.spyOn(logManager, 'push').mockImplementation((log) => { pushed.push(log as RequestEvent); });
+    const raw = mockResponse();
+    raw.statusCode = 404;
+    const reply = { raw, statusCode: 404, sent: false };
+    const request = { headers: {}, method: 'GET', url: '/api/orders/8812?expand=items', routeOptions: { url: '/api/orders/:id' }, ip: '10.0.0.1' };
+
+    expect(() => createNestInterceptor().intercept(contextFor(request, reply as unknown as ReturnType<typeof mockResponse>), next).subscribe(() => {}))
+      .not.toThrow();
+    raw.trigger('finish');
+    pushSpy.mockRestore();
+
+    expect(pushed).toMatchObject([
+      { event: RequestEventPhase.Start, method: 'GET', route: '/api/orders/:id' },
+      { event: RequestEventPhase.End, route: '/api/orders/:id', status: 404 }
+    ]);
+    expect(ensureSpy.mock.calls[0][0].metadata.path).toBe('/api/orders/8812');
+  });
+
   it('falls back to the extractor without the header', () => {
     const ctx = interceptedContext({ headers: {} }, { session: () => 'custom-session' });
     expect(ctx.sessionId).toBe('custom-session');
