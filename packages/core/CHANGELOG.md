@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.3.0
+- Added `RequestEvent` (with `RequestEventPhase`, `RequestKind`, `RequestOutcome`): the start and end of a request, used by `@shipbook/node` to group a request's logs. Logs and the request context gain an optional `requestId`.
+
+## 2.3.0
+- Added `RequestEvent` (with `RequestEventPhase`, `RequestKind`, `RequestOutcome`): the start and end of a request, used by `@shipbook/node` to group a request's logs. Logs and the request context gain an optional `requestId`.
+
 ## 2.2.0
 - Added the shared pieces for cross-app session linking: the `x-shipbook-session` header name and a `callerSessionLink` field on sessions. Used by `@shipbook/client` and `@shipbook/node`.
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.5.0
+- Each HTTP request is now its own unit. The Express middleware and NestJS interceptor give every request an id and record when it started and ended, with its method, route, status and duration. In the console a session reads request by request, and requests that ran at the same time no longer mix.
+- MCP servers: calls to an MCP endpoint are labelled with what they were asked to do, e.g. `tools/call get-logs`. For MCP over stdio or any other transport, wrap the transport: `server.connect(Shipbook.mcpTransport(new StdioServerTransport()))`. Each call becomes a request, with its JSON-RPC error code when it fails.
+- New `Shipbook.runInRequest(kind, operation, fn)` groups work that isn't an HTTP request (a queue message, a WebSocket message) as one request. A thrown error marks it failed.
+- NestJS on Fastify: sessions now record the request path.
+
+## 1.5.0
+- Each HTTP request is now its own unit. The Express middleware and NestJS interceptor give every request an id and record when it started and ended, with its method, route, status and duration. In the console a session reads request by request, and requests that ran at the same time no longer mix.
+- MCP servers: calls to an MCP endpoint are labelled with what they were asked to do, e.g. `tools/call get-logs`. For MCP over stdio or any other transport, wrap the transport: `server.connect(Shipbook.mcpTransport(new StdioServerTransport()))`. Each call becomes a request, with its JSON-RPC error code when it fails.
+- New `Shipbook.runInRequest(kind, operation, fn)` groups work that isn't an HTTP request (a queue message, a WebSocket message) as one request. A thrown error marks it failed.
+- NestJS on Fastify: sessions now record the request path.
+
 ## 1.4.0
 - The Express middleware and NestJS interceptor now read the `x-shipbook-session` header sent by your client apps, so the console can link each request to the app session that made it. All requests from one app session are grouped into a single session, ahead of any custom session extractor. Requests without the header behave as before.
 
