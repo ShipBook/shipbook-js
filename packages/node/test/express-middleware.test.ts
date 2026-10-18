@@ -371,6 +371,34 @@ describe('Express Middleware', () => {
       expect(pushed[1].event.route).toBe('/api/orders/:id');
     });
 
+    it('labels an MCP call with its method and tool, once the body is parsed', () => {
+      const middleware = createExpressMiddleware();
+      const req = createMockRequest({ method: 'POST', path: '/mcp' });
+      const res = createMockResponse();
+      middleware(req, res, () => {});
+      // body parsers usually run after the Shipbook middleware, so the start can't see it yet
+      Object.assign(req, { body: { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'get-logs', arguments: {} } } });
+
+      res.__trigger('finish');
+
+      expect(pushed[0].event.operation).toBeUndefined();
+      expect(pushed[1].event).toMatchObject({ route: '/mcp', operation: 'tools/call get-logs' });
+    });
+
+    it('labels a JSON-RPC batch with every call, and leaves other bodies unlabelled', () => {
+      const middleware = createExpressMiddleware();
+      const batch = createMockRequest({ method: 'POST', path: '/mcp', body: [
+        { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} },
+        { jsonrpc: '2.0', id: 2, method: 'resources/read', params: { uri: 'shipbook://apps' } }
+      ] } as Partial<Request>);
+      const plain = createMockRequest({ method: 'POST', path: '/api/checkout', body: { items: 3 } } as Partial<Request>);
+      middleware(batch, createMockResponse(), () => {});
+      middleware(plain, createMockResponse(), () => {});
+
+      expect(pushed[0].event.operation).toBe('initialize, resources/read shipbook://apps');
+      expect(pushed[1].event.operation).toBeUndefined();
+    });
+
     it('mints a different requestId per request in the same session', () => {
       const middleware = createExpressMiddleware();
       const req = createMockRequest();
