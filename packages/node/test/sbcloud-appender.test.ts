@@ -212,6 +212,20 @@ describe('SBCloudAppender', () => {
       expect((requestSpy.mock.calls[0][1] as { sessions: any[] }).sessions[0].logs).toHaveLength(6);
     });
 
+    it('sends before the timer once the saved records reach maxBatchSize', async () => {
+      appender.update({ appenders: [], loggers: [], maxBatchSize: 3 });
+      await appender.push(new Message('1', Severity.Info, 'Tag'));
+      await tick();
+      expect(requestSpy).not.toHaveBeenCalled();
+
+      await appender.push(new Message('2', Severity.Info, 'Tag'));
+      await tick();
+
+      expect(requestSpy).toHaveBeenCalledTimes(1);
+      const sessions = (requestSpy.mock.calls[0][1] as { sessions: any[] }).sessions;
+      expect(sessions[0].logs.map((l: any) => l.message)).toEqual(['1', '2']);
+    });
+
     it('should not call connectionClient when no batches', async () => {
       appender.flush();
       await tick();

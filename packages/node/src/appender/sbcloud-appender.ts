@@ -50,6 +50,9 @@ export class SBCloudAppender implements BaseAppender {
   private maxTime = 3;  // seconds
   private flushSeverity = Severity.Verbose;
   private flushSize = 1000;
+  // Not on mobile: a server can save thousands of records within maxTime, so an upload is also sent once it reaches this size.
+  private maxBatchSize = 1000;
+  private savedRecords = 0;
   private deviceInfo: DeviceInfo;
   private osInfo: OsInfo;
   private appInfo: AppVersionInfo;
@@ -110,7 +113,7 @@ export class SBCloudAppender implements BaseAppender {
 
     // The flushQueue is this log's context: it is saved with it, in order.
     for (const data of [...flushQueue.logs, logWithTrace]) {
-      await storage.pushArrayObj(QUEUE_KEY, { type: RecordType.Log, sessionId: ctx.sessionId, data });
+      await this.save({ type: RecordType.Log, sessionId: ctx.sessionId, data });
     }
     flushQueue.logs = [];
     flushQueue.saved = true;
@@ -138,11 +141,12 @@ export class SBCloudAppender implements BaseAppender {
       logs: []
     };
 
-    await storage.pushArrayObj(QUEUE_KEY, {
-      type: RecordType.Session,
-      sessionId: ctx.sessionId,
-      data: session
-    });
+    await this.save({ type: RecordType.Session, sessionId: ctx.sessionId, data: session });
+  }
+
+  private async save(record: QueueRecord): Promise<void> {
+    await storage.pushArrayObj(QUEUE_KEY, record);
+    if (++this.savedRecords >= this.maxBatchSize) this.flush();
   }
 
   private isHeld(log: BaseLog, flushQueue: FlushQueue): boolean {
@@ -188,6 +192,7 @@ export class SBCloudAppender implements BaseAppender {
     // get picked up by the next flush.
     // Cleared before the await: a log pushed meanwhile must write its descriptor into the next queue, not skip it.
     this.emittedSessions.clear();
+    this.savedRecords = 0;
     const records = await storage.popAllArrayObj(QUEUE_KEY) as QueueRecord[];
 
     if (records.length === 0) {
@@ -231,6 +236,7 @@ export class SBCloudAppender implements BaseAppender {
     if (config.maxTime) this.maxTime = config.maxTime as number;
     if (config.flushSeverity) this.flushSeverity = Severity[config.flushSeverity as keyof typeof Severity];
     if (config.flushSize) this.flushSize = config.flushSize as number;
+    if (config.maxBatchSize) this.maxBatchSize = config.maxBatchSize as number;
   }
 
   destructor(): void {
