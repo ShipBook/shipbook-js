@@ -1,5 +1,5 @@
-import type { BaseAppender, BaseLog, Message, ConfigResponse, Session, DeviceInfo, OsInfo, AppVersionInfo, VersionInfo, RequestContext } from '@shipbook/core';
-import { Severity, SeverityUtil, LogType, InnerLog, connectionClient, HttpMethod, CORE_VERSION, Platform } from '@shipbook/core';
+import type { BaseAppender, BaseLog, Message, RequestEvent, ConfigResponse, Session, DeviceInfo, OsInfo, AppVersionInfo, VersionInfo, RequestContext } from '@shipbook/core';
+import { Severity, SeverityUtil, LogType, RequestEventPhase, InnerLog, connectionClient, HttpMethod, CORE_VERSION, Platform } from '@shipbook/core';
 import { PLATFORM_VERSION } from '../generated/version';
 import { requestContext } from '../context/request-context';
 import { storage } from '../adapters/storage';
@@ -10,6 +10,12 @@ const MACHINE_UDID_KEY = 'machine_udid';
 const QUEUE_KEY = 'session_queue';
 
 enum RecordType { Session = 'session', Log = 'log' }
+// Mobile's flushQueue, one per request: what waits here goes up only with a log at or above flushSeverity.
+interface FlushQueue {
+  logs: BaseLog[];
+  saved: boolean;
+}
+
 interface QueueRecord {
   type: RecordType;
   sessionId: string;
@@ -38,7 +44,8 @@ export class SBCloudAppender implements BaseAppender {
   // flush window. Cleared on each send() so the next window starts fresh. Lives only in
   // memory — no storage involvement. Sync Set ops make this race-free within the JS event loop.
   private emittedSessions = new Set<string>();
-  private queuedLogs = 0;
+  // Keyed by the context object, so a request's queue is freed with it, also when the request never finishes.
+  private flushQueues = new WeakMap<RequestContext, FlushQueue>();
   private timer?: ReturnType<typeof setTimeout>;
   private maxTime = 3;  // seconds
   private flushSeverity = Severity.Verbose;
@@ -68,8 +75,8 @@ export class SBCloudAppender implements BaseAppender {
     this.sdkInfo = { version: `core:${CORE_VERSION}/node:${PLATFORM_VERSION}` };
     this.update(config);
     this.initMachineUdid();
-    // Anything leftover from a previous process is drained by the first scheduled flush.
-    this.scheduleFlush({} as BaseLog);
+    // Anything leftover from a previous process is drained by the first timer.
+    this.createTimer();
   }
 
   private async initMachineUdid(): Promise<void> {
@@ -89,14 +96,25 @@ export class SBCloudAppender implements BaseAppender {
 
     // requestTime keeps a request's logs contiguous in the server's display-order sort.
     const logWithTrace = { ...log, traceId: ctx.traceId, requestId: ctx.requestId, requestTime: ctx.requestId ? ctx.startTime : undefined };
-    await storage.pushArrayObj(QUEUE_KEY, {
-      type: RecordType.Log,
-      sessionId: ctx.sessionId,
-      data: logWithTrace
-    });
-    this.queuedLogs++;
+    let flushQueue = this.flushQueues.get(ctx);
+    if (!flushQueue) {
+      flushQueue = { logs: [], saved: false };
+      this.flushQueues.set(ctx, flushQueue);
+    }
 
-    this.scheduleFlush(log);
+    if (this.isHeld(log, flushQueue)) {
+      flushQueue.logs.push(logWithTrace);
+      if (flushQueue.logs.length > this.flushSize) flushQueue.logs.shift();
+      return;
+    }
+
+    // The flushQueue is this log's context: it is saved with it, in order.
+    for (const data of [...flushQueue.logs, logWithTrace]) {
+      await storage.pushArrayObj(QUEUE_KEY, { type: RecordType.Log, sessionId: ctx.sessionId, data });
+    }
+    flushQueue.logs = [];
+    flushQueue.saved = true;
+    this.createTimer();
   }
 
   // Without this, sessions whose logs all fall below flushSeverity never reach the server, so stats compute against only error-bearing sessions.
@@ -127,33 +145,40 @@ export class SBCloudAppender implements BaseAppender {
     });
   }
 
-  // Only exceptions, errors and warnings ship at once; events have no severity and wait for the timer or a full bulk.
-  private scheduleFlush(log: BaseLog): void {
-    const urgent = log.type === LogType.Exception
-      || (log.type === LogType.Message && SeverityUtil.value((log as Message).severity) <= SeverityUtil.value(Severity.Warning));
-    if (urgent || this.queuedLogs >= this.flushSize) {
-      this.flush();
-      return;
-    }
-
-    if (!this.timer) {
-      this.timer = setTimeout(() => {
-        this.flush();
-        this.timer = undefined;
-      }, this.maxTime * 1000);
+  private isHeld(log: BaseLog, flushQueue: FlushQueue): boolean {
+    switch (log.type) {
+      case LogType.Message:
+        return SeverityUtil.value(this.flushSeverity) < SeverityUtil.value((log as Message).severity);
+      // Unlike mobile, an exception doesn't end a Node process, so it is saved like an error and the timer still sends it.
+      case LogType.Exception:
+        return false;
+      // A request whose logs went up keeps its end: it carries the status, outcome and duration.
+      case LogType.RequestEvent:
+        return !(flushQueue.saved && (log as RequestEvent).event === RequestEventPhase.End);
+      default:
+        return true;
     }
   }
 
-  flush(): void {
-    if (this.timer) {
-      clearTimeout(this.timer);
+  private createTimer(): void {
+    if (this.timer) return;
+    this.timer = setTimeout(() => {
       this.timer = undefined;
-    }
+      this.send();
+    }, this.maxTime * 1000);
+  }
+
+  flush(): void {
+    InnerLog.d('flushed logs');
     this.send();
   }
 
   private async send(): Promise<void> {
     InnerLog.d('send() called');
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = undefined;
+    }
     if (!this.getToken()) {
       InnerLog.d('No auth token yet, cannot send logs');
       return;
@@ -161,9 +186,9 @@ export class SBCloudAppender implements BaseAppender {
 
     // Drain the queue atomically. New pushes after this point land in a fresh queue and
     // get picked up by the next flush.
-    const records = await storage.popAllArrayObj(QUEUE_KEY) as QueueRecord[];
+    // Cleared before the await: a log pushed meanwhile must write its descriptor into the next queue, not skip it.
     this.emittedSessions.clear();
-    this.queuedLogs = 0;
+    const records = await storage.popAllArrayObj(QUEUE_KEY) as QueueRecord[];
 
     if (records.length === 0) {
       InnerLog.d('No sessions to send');
@@ -174,7 +199,8 @@ export class SBCloudAppender implements BaseAppender {
     const sessionsMap = new Map<string, Session>();
     for (const record of records) {
       if (record.type === RecordType.Session) {
-        sessionsMap.set(record.sessionId, record.data as Session);
+        // A repeated descriptor must not replace the session and drop the logs already grouped under it.
+        if (!sessionsMap.has(record.sessionId)) sessionsMap.set(record.sessionId, record.data as Session);
       } else if (record.type === RecordType.Log) {
         const session = sessionsMap.get(record.sessionId);
         if (session) session.logs!.push(record.data as BaseLog);
@@ -208,9 +234,6 @@ export class SBCloudAppender implements BaseAppender {
   }
 
   destructor(): void {
-    if (this.timer) {
-      clearTimeout(this.timer);
-    }
     this.send();
   }
 }
