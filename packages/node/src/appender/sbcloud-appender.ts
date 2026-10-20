@@ -49,7 +49,7 @@ export class SBCloudAppender implements BaseAppender {
   private timer?: ReturnType<typeof setTimeout>;
   private maxTime = 3;  // seconds
   private flushSeverity = Severity.Verbose;
-  private flushSize = 1000;
+  private flushSize = 100;  // per request, not per app as on mobile
   // Not on mobile: a server can save thousands of records within maxTime, so an upload is also sent once it reaches this size.
   private maxBatchSize = 1000;
   // As on the client SDK: while uploads can't drain the queue (no token), it's emptied at this size instead of growing without bound.
