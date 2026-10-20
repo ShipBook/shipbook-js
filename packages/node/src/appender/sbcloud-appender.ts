@@ -52,6 +52,8 @@ export class SBCloudAppender implements BaseAppender {
   private flushSize = 1000;
   // Not on mobile: a server can save thousands of records within maxTime, so an upload is also sent once it reaches this size.
   private maxBatchSize = 1000;
+  // As on the client SDK: while uploads can't drain the queue (no token), it's emptied at this size instead of growing without bound.
+  private maxLogSize = 5000;
   private savedRecords = 0;
   private deviceInfo: DeviceInfo;
   private osInfo: OsInfo;
@@ -78,6 +80,7 @@ export class SBCloudAppender implements BaseAppender {
     this.sdkInfo = { version: `core:${CORE_VERSION}/node:${PLATFORM_VERSION}` };
     this.update(config);
     this.initMachineUdid();
+    storage.arraySize(QUEUE_KEY).then(leftover => this.savedRecords += leftover);
     // Anything leftover from a previous process is drained by the first timer.
     this.createTimer();
   }
@@ -95,6 +98,7 @@ export class SBCloudAppender implements BaseAppender {
     InnerLog.d('push() called');
     const ctx = requestContext.get() ?? requestContext.background;
 
+    await this.trimQueue();
     await this.ensureSession(ctx);
 
     // requestTime keeps a request's logs contiguous in the server's display-order sort.
@@ -122,6 +126,7 @@ export class SBCloudAppender implements BaseAppender {
 
   // Without this, sessions whose logs all fall below flushSeverity never reach the server, so stats compute against only error-bearing sessions.
   async ensureSession(ctx: RequestContext): Promise<void> {
+    await this.trimQueue();
     if (this.emittedSessions.has(ctx.sessionId)) return;
     this.emittedSessions.add(ctx.sessionId);
 
@@ -142,6 +147,15 @@ export class SBCloudAppender implements BaseAppender {
     };
 
     await this.save({ type: RecordType.Session, sessionId: ctx.sessionId, data: session });
+  }
+
+  // Runs before anything is written, so the record that follows writes its own session descriptor again.
+  private async trimQueue(): Promise<void> {
+    if (this.savedRecords < this.maxLogSize) return;
+    InnerLog.d('queue over maxLogSize, dropping it');
+    this.emittedSessions.clear();
+    this.savedRecords = 0;
+    await storage.popAllArrayObj(QUEUE_KEY);
   }
 
   private async save(record: QueueRecord): Promise<void> {
@@ -237,6 +251,7 @@ export class SBCloudAppender implements BaseAppender {
     if (config.flushSeverity) this.flushSeverity = Severity[config.flushSeverity as keyof typeof Severity];
     if (config.flushSize) this.flushSize = config.flushSize as number;
     if (config.maxBatchSize) this.maxBatchSize = config.maxBatchSize as number;
+    if (config.maxLogSize) this.maxLogSize = config.maxLogSize as number;
   }
 
   destructor(): void {

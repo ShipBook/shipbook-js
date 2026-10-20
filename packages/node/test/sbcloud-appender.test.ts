@@ -187,6 +187,23 @@ describe('SBCloudAppender', () => {
       expect(requestSpy).toHaveBeenCalledTimes(1);
     });
 
+    it('empties the queue at maxLogSize while it cannot upload, then keeps saving', async () => {
+      SBCloudAppender.setDeps({ getToken: () => undefined });
+      const offline = new SBCloudAppender('offline');
+      offline.update({ appenders: [], loggers: [], maxLogSize: 4 });
+      for (const message of ['1', '2', '3', '4']) await offline.push(new Message(message, Severity.Info, 'Tag'));
+
+      SBCloudAppender.setDeps({ getToken: () => 'test-token' });
+      const online = new SBCloudAppender('online');
+      online.flush();
+      await tick();
+
+      const sessions = (requestSpy.mock.calls[0][1] as { sessions: any[] }).sessions;
+      expect(sessions[0].logs.map((l: any) => l.message)).toEqual(['4']);
+      offline.destructor();
+      online.destructor();
+    });
+
     it('should not call connectionClient when no token', async () => {
       SBCloudAppender.setDeps({ getToken: () => undefined });
       const noTokenAppender = new SBCloudAppender('no-token');

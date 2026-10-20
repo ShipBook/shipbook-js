@@ -216,6 +216,8 @@ class NodeStorage implements IStorage {
    */
   setMemoryOnly(enabled: boolean): void {
     this.fsEnabled = !enabled;
+    // Otherwise the first initialize() probes the disk and turns file storage back on.
+    this.initialized = true;
   }
 }
 
