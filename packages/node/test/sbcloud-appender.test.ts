@@ -56,12 +56,15 @@ describe('SBCloudAppender', () => {
       expect(session.metadata).toEqual({ type: 'background' });
     });
 
-    it('writes session descriptor and log to the cloud_queue', async () => {
-      await appender.push(new Message('persist test', Severity.Info, 'Tag'));
+    it('keeps the cloud queue in memory, nothing on disk', async () => {
+      const writeSpy = jest.spyOn(storage, 'pushArrayObj');
+      await appender.push(new Message('memory test', Severity.Info, 'Tag'));
+      appender.flush();
+      await tick();
 
-      const records = await storage.popAllArrayObj('cloud_queue') as Array<{ type: string }>;
-      const types = records.map(r => r.type);
-      expect(types).toEqual(['session', 'log']);
+      expect(writeSpy).not.toHaveBeenCalled();
+      const session = (requestSpy.mock.calls[0][1] as { sessions: any[] }).sessions[0];
+      expect(session.logs.map((l: any) => l.message)).toEqual(['memory test']);
     });
   });
 
@@ -188,20 +191,19 @@ describe('SBCloudAppender', () => {
     });
 
     it('empties the queue at maxLogSize while it cannot upload, then keeps saving', async () => {
-      SBCloudAppender.setDeps({ getToken: () => undefined });
+      let token: string | undefined;
+      SBCloudAppender.setDeps({ getToken: () => token });
       const offline = new SBCloudAppender('offline');
       offline.update({ appenders: [], loggers: [], maxLogSize: 4 });
       for (const message of ['1', '2', '3', '4']) await offline.push(new Message(message, Severity.Info, 'Tag'));
 
-      SBCloudAppender.setDeps({ getToken: () => 'test-token' });
-      const online = new SBCloudAppender('online');
-      online.flush();
+      token = 'test-token';
+      offline.flush();
       await tick();
 
       const sessions = (requestSpy.mock.calls[0][1] as { sessions: any[] }).sessions;
       expect(sessions[0].logs.map((l: any) => l.message)).toEqual(['4']);
       offline.destructor();
-      online.destructor();
     });
 
     it('should not call connectionClient when no token', async () => {
@@ -217,7 +219,6 @@ describe('SBCloudAppender', () => {
     });
 
     it('sends a burst of errors in one upload, when the timer fires', async () => {
-      appender.flush(); // ends the startup drain timer, so the next one uses the shorter maxTime
       appender.update({ appenders: [], loggers: [], maxTime: 0.05 });
       for (let i = 0; i < 5; i++) await appender.push(new Message('error ' + i, Severity.Error, 'Tag'));
       await appender.push(new Exception('TypeError', 'boom', 'at x'));

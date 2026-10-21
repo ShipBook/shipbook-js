@@ -7,19 +7,11 @@ import { randomUUID } from 'crypto';
 import * as os from 'os';
 
 const MACHINE_UDID_KEY = 'machine_udid';
-const CLOUD_QUEUE_KEY = 'cloud_queue';
 
-enum RecordType { Session = 'session', Log = 'log' }
 // Mobile's flushQueue, one per request: what waits here goes up only with a log at or above flushSeverity.
 interface FlushQueue {
   logs: BaseLog[];
   saved: boolean;
-}
-
-interface QueueRecord {
-  type: RecordType;
-  sessionId: string;
-  data: Session | BaseLog;
 }
 
 export interface SBCloudAppenderDeps {
@@ -31,19 +23,15 @@ export interface SBCloudAppenderDeps {
  * Node.js cloud appender — registered as 'SBCloudAppender' so server config
  * (which references that name) activates this appender via appenderFactory.
  *
- * Single queue with typed records: every session descriptor and every log is
- * appended to `cloud_queue` via IStorage.pushArrayObj. send() drains via
- * popAllArrayObj, groups records by sessionId, posts the result. Mirrors iOS's
- * CloudQueue pattern but with explicit sessionId per record since Node has
- * many concurrent sessions per process.
+ * The cloud queue lives in memory, per process, like other server SDKs (OpenTelemetry,
+ * Sentry, Better Stack): sessions keyed by sessionId, each collecting its saved logs,
+ * and send() uploads them as they are.
  */
 export class SBCloudAppender implements BaseAppender {
   name: string;
 
-  // Tracks which sessionIds we've already written a descriptor record for in the current
-  // flush window. Cleared on each send() so the next window starts fresh. Lives only in
-  // memory — no storage involvement. Sync Set ops make this race-free within the JS event loop.
-  private emittedSessions = new Set<string>();
+  private cloudQueue = new Map<string, Session>();
+  private queuedRecords = 0;
   // Keyed by the context object, so a request's queue is freed with it, also when the request never finishes.
   private flushQueues = new WeakMap<RequestContext, FlushQueue>();
   private timer?: ReturnType<typeof setTimeout>;
@@ -54,7 +42,6 @@ export class SBCloudAppender implements BaseAppender {
   private maxBatchSize = 1000;
   // As on the client SDK: while uploads can't drain the queue (no token), it's emptied at this size instead of growing without bound.
   private maxLogSize = 5000;
-  private savedRecords = 0;
   private deviceInfo: DeviceInfo;
   private osInfo: OsInfo;
   private appInfo: AppVersionInfo;
@@ -80,9 +67,6 @@ export class SBCloudAppender implements BaseAppender {
     this.sdkInfo = { version: `core:${CORE_VERSION}/node:${PLATFORM_VERSION}` };
     this.update(config);
     this.initMachineUdid();
-    storage.arraySize(CLOUD_QUEUE_KEY).then(leftover => this.savedRecords += leftover);
-    // Anything leftover from a previous process is drained by the first timer.
-    this.createTimer();
   }
 
   private async initMachineUdid(): Promise<void> {
@@ -94,12 +78,11 @@ export class SBCloudAppender implements BaseAppender {
     }
   }
 
-  async push(log: BaseLog): Promise<void> {
+  push(log: BaseLog): void {
     InnerLog.d('push() called');
     const ctx = requestContext.get() ?? requestContext.background;
 
-    await this.trimQueue();
-    await this.ensureSession(ctx);
+    this.ensureSession(ctx);
 
     // requestTime keeps a request's logs contiguous in the server's display-order sort.
     const logWithTrace = { ...log, traceId: ctx.traceId, requestId: ctx.requestId, requestTime: ctx.requestId ? ctx.startTime : undefined };
@@ -116,21 +99,23 @@ export class SBCloudAppender implements BaseAppender {
     }
 
     // The flushQueue is this log's context: it is saved with it, in order.
-    for (const data of [...flushQueue.logs, logWithTrace]) {
-      await this.save({ type: RecordType.Log, sessionId: ctx.sessionId, data });
-    }
+    this.cloudQueue.get(ctx.sessionId)!.logs!.push(...flushQueue.logs, logWithTrace);
+    this.queuedRecords += flushQueue.logs.length + 1;
     flushQueue.logs = [];
     flushQueue.saved = true;
-    this.createTimer();
+    this.afterSave();
   }
 
   // Without this, sessions whose logs all fall below flushSeverity never reach the server, so stats compute against only error-bearing sessions.
-  async ensureSession(ctx: RequestContext): Promise<void> {
-    await this.trimQueue();
-    if (this.emittedSessions.has(ctx.sessionId)) return;
-    this.emittedSessions.add(ctx.sessionId);
+  ensureSession(ctx: RequestContext): void {
+    if (this.queuedRecords >= this.maxLogSize) {
+      InnerLog.d('cloud queue over maxLogSize, dropping it');
+      this.cloudQueue.clear();
+      this.queuedRecords = 0;
+    }
+    if (this.cloudQueue.has(ctx.sessionId)) return;
 
-    const session: Session = {
+    this.cloudQueue.set(ctx.sessionId, {
       sessionId: ctx.sessionId,
       userInfo: ctx.user,
       metadata: ctx.metadata || { type: 'background' },
@@ -144,23 +129,14 @@ export class SBCloudAppender implements BaseAppender {
       appInfo: this.appInfo,
       sdkInfo: this.sdkInfo,
       logs: []
-    };
-
-    await this.save({ type: RecordType.Session, sessionId: ctx.sessionId, data: session });
+    });
+    this.queuedRecords++;
+    this.afterSave();
   }
 
-  // Runs before anything is written, so the record that follows writes its own session descriptor again.
-  private async trimQueue(): Promise<void> {
-    if (this.savedRecords < this.maxLogSize) return;
-    InnerLog.d('queue over maxLogSize, dropping it');
-    this.emittedSessions.clear();
-    this.savedRecords = 0;
-    await storage.popAllArrayObj(CLOUD_QUEUE_KEY);
-  }
-
-  private async save(record: QueueRecord): Promise<void> {
-    await storage.pushArrayObj(CLOUD_QUEUE_KEY, record);
-    if (++this.savedRecords >= this.maxBatchSize) this.flush();
+  private afterSave(): void {
+    if (this.queuedRecords >= this.maxBatchSize) this.flush();
+    else this.createTimer();
   }
 
   private isHeld(log: BaseLog, flushQueue: FlushQueue): boolean {
@@ -202,34 +178,13 @@ export class SBCloudAppender implements BaseAppender {
       return;
     }
 
-    // Drain the queue atomically. New pushes after this point land in a fresh queue and
-    // get picked up by the next flush.
-    // Cleared before the await: a log pushed meanwhile must write its descriptor into the next queue, not skip it.
-    this.emittedSessions.clear();
-    this.savedRecords = 0;
-    const records = await storage.popAllArrayObj(CLOUD_QUEUE_KEY) as QueueRecord[];
-
-    if (records.length === 0) {
+    const sessions = [...this.cloudQueue.values()];
+    this.cloudQueue.clear();
+    this.queuedRecords = 0;
+    if (sessions.length === 0) {
       InnerLog.d('No sessions to send');
       return;
     }
-
-    // Group records by sessionId — descriptor populates the Session, logs append.
-    const sessionsMap = new Map<string, Session>();
-    for (const record of records) {
-      if (record.type === RecordType.Session) {
-        // A repeated descriptor must not replace the session and drop the logs already grouped under it.
-        if (!sessionsMap.has(record.sessionId)) sessionsMap.set(record.sessionId, record.data as Session);
-      } else if (record.type === RecordType.Log) {
-        const session = sessionsMap.get(record.sessionId);
-        if (session) session.logs!.push(record.data as BaseLog);
-        // else: log for a session whose descriptor we don't have. Drop — shouldn't
-        // happen because ensureSession is awaited before the first log per session.
-      }
-    }
-
-    const sessions = [...sessionsMap.values()];
-    if (sessions.length === 0) return;
     InnerLog.d('Sending ' + sessions.length + ' sessions');
 
     try {
