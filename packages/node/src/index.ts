@@ -28,11 +28,14 @@ class ShipbookNode {
   private configRefreshTimer?: ReturnType<typeof setTimeout>;
   private configRefreshInterval = DEFAULT_CONFIG_REFRESH_INTERVAL;
   private unsubscribeBackground?: () => void;
+  // Per app: apps on one machine share the storage folder, and one must not start with another's config.
+  private configKey!: string;
 
   async start(appId: string, appKey: string, appVersion?: string): Promise<string | undefined> {
     // Set deps and register class so the factory can create it during config()
     SBCloudAppender.setDeps({ appVersion: appVersion ?? this.detectAppVersion(), getToken: () => authManager.getToken() });
     appenderFactory.register('SBCloudAppender', SBCloudAppender);
+    this.configKey = `config_${appId}`;
     exceptionHandler.start((name, message, stack) => {
       logManager.push(new Exception(name, message, stack ?? ''));
       return logManager.flush();
@@ -45,13 +48,13 @@ class ShipbookNode {
         const result = await authManager.login(appId, appKey);
         if (!result) return false;
         logManager.config(result.config);
-        storage.setObj('config', result.config);
+        storage.setObj(this.configKey, result.config);
         return true;
       }
     });
 
     // Load persisted config
-    let config = await storage.getObj<ConfigResponse>('config');
+    let config = await storage.getObj<ConfigResponse>(this.configKey);
     if (!config) config = defaultConfig;
     logManager.config(config);
 
@@ -64,7 +67,7 @@ class ShipbookNode {
 
     // Apply and persist server config
     logManager.config(result.config);
-    storage.setObj('config', result.config);
+    storage.setObj(this.configKey, result.config);
     this.scheduleConfigRefresh(result.config.configRefreshInterval);
 
     return undefined;
@@ -107,7 +110,7 @@ class ShipbookNode {
 
       const newConfig: ConfigResponse = await response.json();
       logManager.config(newConfig);
-      storage.setObj('config', newConfig);
+      storage.setObj(this.configKey, newConfig);
 
       this.scheduleConfigRefresh(newConfig.configRefreshInterval);
     } catch (error) {
