@@ -1,8 +1,9 @@
 import type { ConfigResponse } from '@shipbook/core';
-import { logManager } from '@shipbook/core';
+import { logManager, Message, Severity } from '@shipbook/core';
 import { Shipbook } from '../src/index';
 import { authManager } from '../src/auth/auth-manager';
 import { storage } from '../src/adapters/storage';
+import { SBCloudAppender } from '../src/appender/sbcloud-appender';
 
 const configOf = (maxTime: number): ConfigResponse => ({
   appenders: [{ type: 'SBCloudAppender', name: 'cloud', config: { maxTime } }],
@@ -36,6 +37,29 @@ describe('cached config', () => {
 
     await Shipbook.start('app-b', 'key');
 
-    expect(applied[0]).toEqual(configOf(5));
+    expect(applied[1]).toEqual(configOf(5)); // after the startup config
+  });
+});
+
+describe('before the cached or server config', () => {
+  let sent: string[];
+
+  beforeEach(() => {
+    sent = [];
+    jest.spyOn(authManager, 'login').mockResolvedValue(undefined);
+    jest.spyOn(SBCloudAppender.prototype, 'push').mockImplementation(log => { sent.push((log as Message).message); });
+  });
+
+  afterEach(async () => {
+    await Shipbook.shutdown();
+    jest.restoreAllMocks();
+  });
+
+  it('sends a log written right after start() to the cloud appender, as mobile applies its config at once', async () => {
+    const starting = Shipbook.start('app-startup', 'key');
+    logManager.push(new Message('logged at startup', Severity.Info, 'Tag'));
+    await starting;
+
+    expect(sent).toEqual(['logged at startup']);
   });
 });

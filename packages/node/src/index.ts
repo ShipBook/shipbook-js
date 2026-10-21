@@ -13,6 +13,7 @@ import { instrumentMcpTransport } from './mcp/mcp-transport';
 
 const DEFAULT_CONFIG_REFRESH_INTERVAL = 300; // 5 minutes in seconds
 
+// Until the cached or server config is applied, as on mobile: the cloud accumulates (info waits for a warning).
 const defaultConfig: ConfigResponse = {
   appenders: [
     { type: 'ConsoleAppender', name: 'console', config: { pattern: '$message' } },
@@ -35,6 +36,8 @@ class ShipbookNode {
     // Set deps and register class so the factory can create it during config()
     SBCloudAppender.setDeps({ appVersion: appVersion ?? this.detectAppVersion(), getToken: () => authManager.getToken() });
     appenderFactory.register('SBCloudAppender', SBCloudAppender);
+    // Applied at once, as mobile applies its config before anything async, so startup logs don't miss the cloud while the cache is read.
+    logManager.config(defaultConfig);
     this.configKey = `config_${appId}`;
     exceptionHandler.start((name, message, stack) => {
       logManager.push(new Exception(name, message, stack ?? ''));
@@ -54,9 +57,8 @@ class ShipbookNode {
     });
 
     // Load persisted config
-    let config = await storage.getObj<ConfigResponse>(this.configKey);
-    if (!config) config = defaultConfig;
-    logManager.config(config);
+    const cached = await storage.getObj<ConfigResponse>(this.configKey);
+    if (cached) logManager.config(cached);
 
     // Auth via loginSdkServer (server-specific, with proactive token refresh)
     const result = await authManager.login(appId, appKey);
