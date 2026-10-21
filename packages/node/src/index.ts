@@ -126,8 +126,8 @@ class ShipbookNode {
     connectionClient.BASE_URL = url.endsWith('/') ? url : url + '/';
   }
 
-  flush(): void {
-    logManager.flush();
+  flush(): Promise<void> {
+    return logManager.flush();
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
@@ -173,7 +173,7 @@ class ShipbookNode {
     exceptionHandler.stop();
     this.exitListeners.forEach(([event, listener]) => process.removeListener(event, listener));
     this.exitListeners = [];
-    logManager.flush();
+    await logManager.flush();
     authManager.destroy();
   }
 
@@ -216,7 +216,7 @@ class ShipbookNode {
 
   private sendBeforeExit(): Promise<void> {
     const timeout = new Promise<void>(resolve => setTimeout(resolve, SEND_BEFORE_EXIT_TIMEOUT));
-    return Promise.race([SBCloudAppender.instance?.flush(), timeout]);
+    return Promise.race([logManager.flush(), timeout]);
   }
 }
 

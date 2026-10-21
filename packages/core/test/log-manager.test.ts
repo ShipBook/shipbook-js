@@ -25,7 +25,7 @@ class TestAppender implements BaseAppender {
 
   update(_config?: ConfigResponse): void {}
   push(log: BaseLog): void { this.logs.push(log); }
-  flush(): void {}
+  flush(): void | Promise<void> {}
   destructor(): void {}
 
   clear(): void { this.logs = []; }
@@ -206,6 +206,25 @@ describe('LogManager with TestAppender', () => {
     logManager.push(new Message('second', Severity.Info, 'Tag'));
     expect(secondAppender.messages.length).toBe(1);
     expect(secondAppender.messages[0].message).toBe('second');
+  });
+
+  test('flush resolves once the appenders have finished flushing', async () => {
+    let finishUpload!: () => void;
+    jest.spyOn(appender, 'flush').mockReturnValue(new Promise<void>(resolve => { finishUpload = resolve; }));
+    let flushed = false;
+    const flushing = logManager.flush().then(() => { flushed = true; });
+
+    await Promise.resolve();
+    expect(flushed).toBe(false);
+    finishUpload();
+    await flushing;
+    expect(flushed).toBe(true);
+  });
+
+  test('flush never rejects, even when an appender fails', async () => {
+    jest.spyOn(appender, 'flush').mockRejectedValue(new Error('upload failed'));
+
+    await expect(logManager.flush()).resolves.toBeUndefined();
   });
 });
 

@@ -81,6 +81,7 @@ describe('exit capture', () => {
     expect(exit).not.toHaveBeenCalled();
     await jest.advanceTimersByTimeAsync(1);
     expect(exit).toHaveBeenCalledWith(1);
+    flush.mockResolvedValue(undefined); // so shutdown() in afterEach doesn't wait on the hung send
   });
 
   it('on SIGTERM sends the queue, then lets the signal terminate the process', async () => {
