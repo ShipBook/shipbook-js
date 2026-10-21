@@ -6,6 +6,7 @@ import { storage, exceptionHandler, eventManager } from './adapters';
 import { createExpressMiddleware } from './middleware/express';
 import { createNestInterceptor } from './middleware/nestjs';
 import { SBCloudAppender } from './appender/sbcloud-appender';
+import { StartupAppender, HeldStartupEntry } from './appender/startup-appender';
 import { authManager } from './auth/auth-manager';
 import { requestContext } from './context/request-context';
 import { runInRequest } from './middleware/request-events';
@@ -13,14 +14,18 @@ import { instrumentMcpTransport } from './mcp/mcp-transport';
 
 const DEFAULT_CONFIG_REFRESH_INTERVAL = 300; // 5 minutes in seconds
 
-const defaultConfig: ConfigResponse = {
+// The same cap as the cloud queue's maxLogSize, for logs held while login hasn't returned a config.
+const STARTUP_HOLD_LIMIT = 5000;
+
+// Until the first server config the console prints everything, and what's meant for the cloud is held for that config to filter.
+const startupConfig: ConfigResponse = {
   appenders: [
     { type: 'ConsoleAppender', name: 'console', config: { pattern: '$message' } },
-    { type: 'SBCloudAppender', name: 'cloud', config: { maxTime: 3, flushSeverity: 'Warning' } }
+    { type: 'StartupAppender', name: 'startup' }
   ],
   loggers: [
     { name: '', severity: 'Verbose', appenderRef: 'console' },
-    { name: '', severity: 'Verbose', appenderRef: 'cloud' }
+    { name: '', severity: 'Verbose', appenderRef: 'startup' }
   ]
 };
 
@@ -28,6 +33,7 @@ class ShipbookNode {
   private configRefreshTimer?: ReturnType<typeof setTimeout>;
   private configRefreshInterval = DEFAULT_CONFIG_REFRESH_INTERVAL;
   private unsubscribeBackground?: () => void;
+  private startupEntries: HeldStartupEntry[] = [];
   // Per app: apps on one machine share the storage folder, and one must not start with another's config.
   private configKey!: string;
 
@@ -35,6 +41,12 @@ class ShipbookNode {
     // Set deps and register class so the factory can create it during config()
     SBCloudAppender.setDeps({ appVersion: appVersion ?? this.detectAppVersion(), getToken: () => authManager.getToken() });
     appenderFactory.register('SBCloudAppender', SBCloudAppender);
+    StartupAppender.setDeps({ hold: entry => {
+      this.startupEntries.push(entry);
+      if (this.startupEntries.length > STARTUP_HOLD_LIMIT) this.startupEntries.shift();
+    } });
+    appenderFactory.register('StartupAppender', StartupAppender);
+    logManager.config(startupConfig);
     this.configKey = `config_${appId}`;
     exceptionHandler.start((name, message, stack) => {
       logManager.push(new Exception(name, message, stack ?? ''));
@@ -47,16 +59,15 @@ class ShipbookNode {
       refreshToken: async () => {
         const result = await authManager.login(appId, appKey);
         if (!result) return false;
-        logManager.config(result.config);
+        this.applyConfig(result.config);
         storage.setObj(this.configKey, result.config);
         return true;
       }
     });
 
     // Load persisted config
-    let config = await storage.getObj<ConfigResponse>(this.configKey);
-    if (!config) config = defaultConfig;
-    logManager.config(config);
+    const cached = await storage.getObj<ConfigResponse>(this.configKey);
+    if (cached) this.applyConfig(cached);
 
     // Auth via loginSdkServer (server-specific, with proactive token refresh)
     const result = await authManager.login(appId, appKey);
@@ -66,11 +77,19 @@ class ShipbookNode {
     }
 
     // Apply and persist server config
-    logManager.config(result.config);
+    this.applyConfig(result.config);
     storage.setObj(this.configKey, result.config);
     this.scheduleConfigRefresh(result.config.configRefreshInterval);
 
     return undefined;
+  }
+
+  // Every server config goes through here: the first one also takes what was held at startup, each log back in its own request.
+  private applyConfig(config: ConfigResponse): void {
+    const held = this.startupEntries;
+    this.startupEntries = [];
+    logManager.config(config);
+    held.forEach(({ ctx, log }) => requestContext.enter(ctx, () => log ? logManager.push(log) : logManager.ensureSession(ctx)));
   }
 
   // Nearest package.json wins — walking past one without a version would grab an unrelated manifest
@@ -109,7 +128,7 @@ class ShipbookNode {
       }
 
       const newConfig: ConfigResponse = await response.json();
-      logManager.config(newConfig);
+      this.applyConfig(newConfig);
       storage.setObj(this.configKey, newConfig);
 
       this.scheduleConfigRefresh(newConfig.configRefreshInterval);
