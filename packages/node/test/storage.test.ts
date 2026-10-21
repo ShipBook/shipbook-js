@@ -24,10 +24,9 @@ describe('NodeStorage (memory-only)', () => {
 
   // A storage folder that can't be created leaves only the memory fallback.
   beforeEach(() => {
-    const folder = process.env.SHIPBOOK_STORAGE_PATH;
     process.env.SHIPBOOK_STORAGE_PATH = '/dev/null/shipbook';
     jest.isolateModules(() => { storage = require('../src/adapters/storage').storage; });
-    process.env.SHIPBOOK_STORAGE_PATH = folder;
+    delete process.env.SHIPBOOK_STORAGE_PATH;
   });
 
   describe('setItem/getItem', () => {

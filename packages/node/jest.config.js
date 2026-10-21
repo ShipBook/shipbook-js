@@ -4,9 +4,6 @@ module.exports = {
   testEnvironment: 'node',
   roots: ['<rootDir>/test'],
   testMatch: ['**/*.test.ts'],
-  setupFiles: ['<rootDir>/test/setup-storage.ts'],
-  globalSetup: '<rootDir>/test/global-storage.ts',
-  globalTeardown: '<rootDir>/test/global-storage-teardown.ts',
   moduleFileExtensions: ['ts', 'js'],
   collectCoverageFrom: [
     'src/**/*.ts',
