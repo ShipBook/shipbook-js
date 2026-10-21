@@ -1,7 +1,7 @@
 import { SBCloudAppender } from '../src/appender/sbcloud-appender';
 import { requestContext } from '../src/context/request-context';
 import { storage } from '../src/adapters/storage';
-import { Message, Severity, connectionClient, HttpMethod } from '@shipbook/core';
+import { Message, Exception, RequestEvent, RequestEventPhase, RequestKind, Severity, connectionClient, HttpMethod } from '@shipbook/core';
 
 const tick = (ms = 50) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -10,9 +10,6 @@ describe('SBCloudAppender', () => {
   let requestSpy: jest.SpyInstance;
 
   beforeEach(() => {
-    storage.setMemoryOnly(true);
-    storage.clear();
-
     SBCloudAppender.setDeps({
       appVersion: '1.0.0',
       getToken: () => 'test-token',
@@ -56,12 +53,15 @@ describe('SBCloudAppender', () => {
       expect(session.metadata).toEqual({ type: 'background' });
     });
 
-    it('writes session descriptor and log to the session_queue', async () => {
-      await appender.push(new Message('persist test', Severity.Info, 'Tag'));
+    it('keeps the cloud queue in memory, nothing on disk', async () => {
+      const queueWrite = jest.spyOn(storage, 'pushArrayObj');
+      await appender.push(new Message('memory test', Severity.Info, 'Tag'));
+      appender.flush();
+      await tick();
 
-      const records = await storage.popAllArrayObj('session_queue') as Array<{ type: string }>;
-      const types = records.map(r => r.type);
-      expect(types).toEqual(['session', 'log']);
+      expect(queueWrite).not.toHaveBeenCalled();
+      const session = (requestSpy.mock.calls[0][1] as { sessions: any[] }).sessions[0];
+      expect(session.logs.map((l: any) => l.message)).toEqual(['memory test']);
     });
   });
 
@@ -187,6 +187,22 @@ describe('SBCloudAppender', () => {
       expect(requestSpy).toHaveBeenCalledTimes(1);
     });
 
+    it('empties the queue at maxLogSize while it cannot upload, then keeps saving', async () => {
+      let token: string | undefined;
+      SBCloudAppender.setDeps({ getToken: () => token });
+      const offline = new SBCloudAppender('offline');
+      offline.update({ appenders: [], loggers: [], maxLogSize: 4 });
+      for (const message of ['1', '2', '3', '4']) await offline.push(new Message(message, Severity.Info, 'Tag'));
+
+      token = 'test-token';
+      offline.flush();
+      await tick();
+
+      const sessions = (requestSpy.mock.calls[0][1] as { sessions: any[] }).sessions;
+      expect(sessions[0].logs.map((l: any) => l.message)).toEqual(['4']);
+      offline.destructor();
+    });
+
     it('should not call connectionClient when no token', async () => {
       SBCloudAppender.setDeps({ getToken: () => undefined });
       const noTokenAppender = new SBCloudAppender('no-token');
@@ -199,12 +215,100 @@ describe('SBCloudAppender', () => {
       noTokenAppender.destructor();
     });
 
+    it('sends a burst of errors in one upload, when the timer fires', async () => {
+      appender.update({ appenders: [], loggers: [], maxTime: 0.05 });
+      for (let i = 0; i < 5; i++) await appender.push(new Message('error ' + i, Severity.Error, 'Tag'));
+      await appender.push(new Exception('TypeError', 'boom', 'at x'));
+      expect(requestSpy).not.toHaveBeenCalled();
+
+      await tick(100);
+
+      expect(requestSpy).toHaveBeenCalledTimes(1);
+      expect((requestSpy.mock.calls[0][1] as { sessions: any[] }).sessions[0].logs).toHaveLength(6);
+    });
+
+    it('sends before the timer once the saved records reach maxBatchSize', async () => {
+      appender.update({ appenders: [], loggers: [], maxBatchSize: 3 });
+      await appender.push(new Message('1', Severity.Info, 'Tag'));
+      await tick();
+      expect(requestSpy).not.toHaveBeenCalled();
+
+      await appender.push(new Message('2', Severity.Info, 'Tag'));
+      await tick();
+
+      expect(requestSpy).toHaveBeenCalledTimes(1);
+      const sessions = (requestSpy.mock.calls[0][1] as { sessions: any[] }).sessions;
+      expect(sessions[0].logs.map((l: any) => l.message)).toEqual(['1', '2']);
+    });
+
     it('should not call connectionClient when no batches', async () => {
       appender.flush();
       await tick();
 
       expect(requestSpy).not.toHaveBeenCalled();
     });
+  });
+
+  describe('flushQueue (as on mobile)', () => {
+    const sentLogs = () => requestSpy.mock.calls.flatMap(call => (call[1] as { sessions: any[] }).sessions.flatMap(s => s.logs));
+
+    beforeEach(() => appender.update({ appenders: [], loggers: [], flushSeverity: 'Warning', flushSize: 2 }));
+
+    it('holds logs below flushSeverity, so a quiet request uploads only its session', async () => {
+      await requestContext.run({ sessionId: 'quiet' }, async () => {
+        await appender.push(new Message('info', Severity.Info, 'Tag'));
+      });
+      appender.flush();
+      await tick();
+
+      const sessions = (requestSpy.mock.calls[0][1] as { sessions: any[] }).sessions;
+      expect(sessions.map(s => s.sessionId)).toEqual(['quiet']);
+      expect(sessions[0].logs).toEqual([]);
+    });
+
+    it('saves the held logs as context of a log at flushSeverity, keeping the last flushSize of them', async () => {
+      await requestContext.run({ sessionId: 'failing' }, async () => {
+        for (const message of ['1', '2', '3']) await appender.push(new Message(message, Severity.Info, 'Tag'));
+        await appender.push(new Message('warning', Severity.Warning, 'Tag'));
+      });
+      appender.flush();
+      await tick();
+
+      expect(sentLogs().map(l => l.message)).toEqual(['2', '3', 'warning']);
+    });
+
+    it("keeps each request's flushQueue apart", async () => {
+      await requestContext.run({ sessionId: 'a' }, async () => {
+        await appender.push(new Message('a info', Severity.Info, 'Tag'));
+      });
+      await requestContext.run({ sessionId: 'b' }, async () => {
+        await appender.push(new Message('b error', Severity.Error, 'Tag'));
+      });
+      appender.flush();
+      await tick();
+
+      expect(sentLogs().map(l => l.message)).toEqual(['b error']);
+    });
+
+    it("uploads a request's start and end only when the request logs something at flushSeverity", async () => {
+      const ctx = { sessionId: 'request', requestId: 'req-1', startTime: new Date(), isBackground: false };
+      const start = new RequestEvent(RequestEventPhase.Start, RequestKind.Http, 'GET', '/orders');
+      await requestContext.enter(ctx, async () => {
+        await appender.push(start);
+        await appender.push(new Message('error', Severity.Error, 'Tag'));
+        await appender.push(new RequestEvent(RequestEventPhase.End, RequestKind.Http, 'GET', '/orders', undefined, ctx.startTime, start.orderId, 500));
+      });
+      const quiet = { sessionId: 'quiet-request', requestId: 'req-2', startTime: new Date(), isBackground: false };
+      await requestContext.enter(quiet, async () => {
+        await appender.push(new RequestEvent(RequestEventPhase.Start, RequestKind.Http, 'GET', '/health'));
+        await appender.push(new RequestEvent(RequestEventPhase.End, RequestKind.Http, 'GET', '/health'));
+      });
+      appender.flush();
+      await tick();
+
+      expect(sentLogs().map(l => l.event ?? l.message)).toEqual([RequestEventPhase.Start, 'error', RequestEventPhase.End]);
+    });
+
   });
 
   describe('ensureSession()', () => {

@@ -57,7 +57,7 @@ export function createExpressMiddleware(extractors: ExpressExtractors = {}) {
     // Without this, sessions whose logs all fall below flushSeverity never reach the server.
     logManager.ensureSession(context);
 
-    requestContext.run(context, () => {
+    requestContext.enter(context, () => {
       trackRequest(context, res, req.method, () => req.route ? req.baseUrl + req.route.path : req.path, () => req.body);
       next();
     });

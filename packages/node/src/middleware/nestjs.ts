@@ -49,7 +49,7 @@ export function createNestInterceptor(extractors: NestExtractors = {}) {
       // Use Observable constructor to wrap the async context
       const { Observable: RxObservable } = require('rxjs');
       return new RxObservable((subscriber: any) => {
-        requestContext.run(ctx, () => {
+        requestContext.enter(ctx, () => {
           trackRequest(ctx, res.raw ?? res, req.method, () => req.route?.path ?? req.routeOptions?.url ?? path, () => req.body);
           next.handle().subscribe(subscriber);
         });

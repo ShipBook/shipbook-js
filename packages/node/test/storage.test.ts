@@ -1,4 +1,4 @@
-import { storage } from '../src/adapters/storage';
+import { storage as fileStorage } from '../src/adapters/storage';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -20,9 +20,13 @@ async function cleanupTestFiles() {
 }
 
 describe('NodeStorage (memory-only)', () => {
+  let storage: typeof fileStorage;
+
+  // A storage folder that can't be created leaves only the memory fallback.
   beforeEach(() => {
-    storage.setMemoryOnly(true);
-    storage.clear();
+    process.env.SHIPBOOK_STORAGE_PATH = '/dev/null/shipbook';
+    jest.isolateModules(() => { storage = require('../src/adapters/storage').storage; });
+    delete process.env.SHIPBOOK_STORAGE_PATH;
   });
 
   describe('setItem/getItem', () => {
@@ -123,8 +127,9 @@ describe('NodeStorage (memory-only)', () => {
 });
 
 describe('NodeStorage (with filesystem)', () => {
+  const storage = fileStorage;
+
   beforeEach(async () => {
-    storage.setMemoryOnly(false);
     storage.clear();
     await cleanupTestFiles();
   });
