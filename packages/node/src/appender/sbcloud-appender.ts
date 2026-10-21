@@ -136,8 +136,17 @@ export class SBCloudAppender implements BaseAppender {
   }
 
   private afterSave(): void {
-    if (this.queueSize >= this.maxBatchSize) this.flush();
+    if (this.queueSize >= this.maxBatchSize) this.sendSoon();
     else this.createTimer();
+  }
+
+  // Not synchronously: send() empties the queue at once, and the push() that filled the batch still adds its log to it.
+  private sendSoon(): void {
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      this.timer = undefined;
+      this.send();
+    }, 0);
   }
 
   private isHeld(log: BaseLog, flushQueue: FlushQueue): boolean {
