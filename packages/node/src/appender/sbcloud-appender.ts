@@ -31,7 +31,8 @@ export class SBCloudAppender implements BaseAppender {
   name: string;
 
   private cloudQueue = new Map<string, Session>();
-  private queuedRecords = 0;
+  // Sessions in cloudQueue plus their logs: what maxBatchSize and maxLogSize measure.
+  private queueSize = 0;
   // Keyed by the context object, so a request's queue is freed with it, also when the request never finishes.
   private flushQueues = new WeakMap<RequestContext, FlushQueue>();
   private timer?: ReturnType<typeof setTimeout>;
@@ -100,7 +101,7 @@ export class SBCloudAppender implements BaseAppender {
 
     // The flushQueue is this log's context: it is saved with it, in order.
     this.cloudQueue.get(ctx.sessionId)!.logs!.push(...flushQueue.logs, logWithTrace);
-    this.queuedRecords += flushQueue.logs.length + 1;
+    this.queueSize += flushQueue.logs.length + 1;
     flushQueue.logs = [];
     flushQueue.saved = true;
     this.afterSave();
@@ -108,10 +109,10 @@ export class SBCloudAppender implements BaseAppender {
 
   // Without this, sessions whose logs all fall below flushSeverity never reach the server, so stats compute against only error-bearing sessions.
   ensureSession(ctx: RequestContext): void {
-    if (this.queuedRecords >= this.maxLogSize) {
+    if (this.queueSize >= this.maxLogSize) {
       InnerLog.d('cloud queue over maxLogSize, dropping it');
       this.cloudQueue.clear();
-      this.queuedRecords = 0;
+      this.queueSize = 0;
     }
     if (this.cloudQueue.has(ctx.sessionId)) return;
 
@@ -130,12 +131,12 @@ export class SBCloudAppender implements BaseAppender {
       sdkInfo: this.sdkInfo,
       logs: []
     });
-    this.queuedRecords++;
+    this.queueSize++;
     this.afterSave();
   }
 
   private afterSave(): void {
-    if (this.queuedRecords >= this.maxBatchSize) this.flush();
+    if (this.queueSize >= this.maxBatchSize) this.flush();
     else this.createTimer();
   }
 
@@ -180,7 +181,7 @@ export class SBCloudAppender implements BaseAppender {
 
     const sessions = [...this.cloudQueue.values()];
     this.cloudQueue.clear();
-    this.queuedRecords = 0;
+    this.queueSize = 0;
     if (sessions.length === 0) {
       InnerLog.d('No sessions to send');
       return;
