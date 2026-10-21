@@ -7,7 +7,7 @@ import { randomUUID } from 'crypto';
 import * as os from 'os';
 
 const MACHINE_UDID_KEY = 'machine_udid';
-const QUEUE_KEY = 'session_queue';
+const CLOUD_QUEUE_KEY = 'cloud_queue';
 
 enum RecordType { Session = 'session', Log = 'log' }
 // Mobile's flushQueue, one per request: what waits here goes up only with a log at or above flushSeverity.
@@ -32,7 +32,7 @@ export interface SBCloudAppenderDeps {
  * (which references that name) activates this appender via appenderFactory.
  *
  * Single queue with typed records: every session descriptor and every log is
- * appended to `session_queue` via IStorage.pushArrayObj. send() drains via
+ * appended to `cloud_queue` via IStorage.pushArrayObj. send() drains via
  * popAllArrayObj, groups records by sessionId, posts the result. Mirrors iOS's
  * CloudQueue pattern but with explicit sessionId per record since Node has
  * many concurrent sessions per process.
@@ -80,7 +80,7 @@ export class SBCloudAppender implements BaseAppender {
     this.sdkInfo = { version: `core:${CORE_VERSION}/node:${PLATFORM_VERSION}` };
     this.update(config);
     this.initMachineUdid();
-    storage.arraySize(QUEUE_KEY).then(leftover => this.savedRecords += leftover);
+    storage.arraySize(CLOUD_QUEUE_KEY).then(leftover => this.savedRecords += leftover);
     // Anything leftover from a previous process is drained by the first timer.
     this.createTimer();
   }
@@ -155,11 +155,11 @@ export class SBCloudAppender implements BaseAppender {
     InnerLog.d('queue over maxLogSize, dropping it');
     this.emittedSessions.clear();
     this.savedRecords = 0;
-    await storage.popAllArrayObj(QUEUE_KEY);
+    await storage.popAllArrayObj(CLOUD_QUEUE_KEY);
   }
 
   private async save(record: QueueRecord): Promise<void> {
-    await storage.pushArrayObj(QUEUE_KEY, record);
+    await storage.pushArrayObj(CLOUD_QUEUE_KEY, record);
     if (++this.savedRecords >= this.maxBatchSize) this.flush();
   }
 
@@ -207,7 +207,7 @@ export class SBCloudAppender implements BaseAppender {
     // Cleared before the await: a log pushed meanwhile must write its descriptor into the next queue, not skip it.
     this.emittedSessions.clear();
     this.savedRecords = 0;
-    const records = await storage.popAllArrayObj(QUEUE_KEY) as QueueRecord[];
+    const records = await storage.popAllArrayObj(CLOUD_QUEUE_KEY) as QueueRecord[];
 
     if (records.length === 0) {
       InnerLog.d('No sessions to send');

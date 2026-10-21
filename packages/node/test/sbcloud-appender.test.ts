@@ -56,10 +56,10 @@ describe('SBCloudAppender', () => {
       expect(session.metadata).toEqual({ type: 'background' });
     });
 
-    it('writes session descriptor and log to the session_queue', async () => {
+    it('writes session descriptor and log to the cloud_queue', async () => {
       await appender.push(new Message('persist test', Severity.Info, 'Tag'));
 
-      const records = await storage.popAllArrayObj('session_queue') as Array<{ type: string }>;
+      const records = await storage.popAllArrayObj('cloud_queue') as Array<{ type: string }>;
       const types = records.map(r => r.type);
       expect(types).toEqual(['session', 'log']);
     });
