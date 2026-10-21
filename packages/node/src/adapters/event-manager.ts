@@ -1,56 +1,58 @@
 import type { IEventManager, AppState } from '@shipbook/core';
+import { untilDoneOrTimeout } from './before-exit';
+
+const EXIT_SIGNALS = ['SIGTERM', 'SIGINT'] as const;
 
 /**
- * Node.js event manager adapter using process events
+ * Node.js event manager adapter using process events.
+ * "Background" is the process about to end: a termination signal or an empty event loop.
+ * Listening to a signal replaces Node's default termination, so listeners exist only while someone subscribed,
+ * and the signal is re-raised after the callbacks unless the app listens to it too.
  */
 class NodeEventManager implements IEventManager {
-  private backgroundCallbacks: Array<() => void> = [];
+  private backgroundCallbacks: Array<() => void | Promise<void>> = [];
   private foregroundCallbacks: Array<() => void> = [];
   private stateChangeCallbacks: Array<(state: AppState) => void> = [];
-  private exitHandler?: () => void;
-  private sigintHandler?: () => void;
-  private sigtermHandler?: () => void;
+  private signalHandlers = new Map<NodeJS.Signals, () => void>();
+  private beforeExitHandler = () => { this.runBackground(); };
 
-  constructor() {
-    this.setupListeners();
+  private runBackground(): Promise<void[]> {
+    this.stateChangeCallbacks.forEach(cb => cb('background'));
+    return Promise.all(this.backgroundCallbacks.map(async cb => cb()));
   }
 
-  private setupListeners(): void {
-    // Handle process exit (treat as background/shutdown)
-    this.exitHandler = () => {
-      this.stateChangeCallbacks.forEach(cb => cb('background'));
-      this.backgroundCallbacks.forEach(cb => cb());
-    };
-
-    // Handle SIGINT (Ctrl+C)
-    this.sigintHandler = () => {
-      this.stateChangeCallbacks.forEach(cb => cb('background'));
-      this.backgroundCallbacks.forEach(cb => cb());
-    };
-
-    // Handle SIGTERM
-    this.sigtermHandler = () => {
-      this.stateChangeCallbacks.forEach(cb => cb('background'));
-      this.backgroundCallbacks.forEach(cb => cb());
-    };
-
-    process.on('exit', this.exitHandler);
-    process.on('SIGINT', this.sigintHandler);
-    process.on('SIGTERM', this.sigtermHandler);
-
-    // Handle beforeExit for graceful shutdown
-    process.on('beforeExit', () => {
-      this.backgroundCallbacks.forEach(cb => cb());
-    });
+  private listen(): void {
+    if (this.signalHandlers.size) return;
+    for (const signal of EXIT_SIGNALS) {
+      const handler = () => {
+        const work = this.runBackground();
+        if (process.listenerCount(signal) > 1) return;
+        untilDoneOrTimeout(work).finally(() => {
+          this.unlisten();
+          process.kill(process.pid, signal);
+        });
+      };
+      this.signalHandlers.set(signal, handler);
+      process.on(signal, handler);
+    }
+    process.on('beforeExit', this.beforeExitHandler);
   }
 
-  onBackground(callback: () => void): () => void {
+  private unlisten(): void {
+    this.signalHandlers.forEach((handler, signal) => process.removeListener(signal, handler));
+    this.signalHandlers.clear();
+    process.removeListener('beforeExit', this.beforeExitHandler);
+  }
+
+  onBackground(callback: () => void | Promise<void>): () => void {
     this.backgroundCallbacks.push(callback);
+    this.listen();
     return () => {
       const index = this.backgroundCallbacks.indexOf(callback);
       if (index > -1) {
         this.backgroundCallbacks.splice(index, 1);
       }
+      if (!this.backgroundCallbacks.length) this.unlisten();
     };
   }
 
@@ -86,16 +88,7 @@ class NodeEventManager implements IEventManager {
   }
 
   destroy(): void {
-    if (this.exitHandler) {
-      process.removeListener('exit', this.exitHandler);
-    }
-    if (this.sigintHandler) {
-      process.removeListener('SIGINT', this.sigintHandler);
-    }
-    if (this.sigtermHandler) {
-      process.removeListener('SIGTERM', this.sigtermHandler);
-    }
-
+    this.unlisten();
     this.backgroundCallbacks = [];
     this.foregroundCallbacks = [];
     this.stateChangeCallbacks = [];

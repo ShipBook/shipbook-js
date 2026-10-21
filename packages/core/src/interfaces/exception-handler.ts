@@ -27,9 +27,10 @@ export interface IExceptionHandler {
 /**
  * Callback type for exception handling
  */
+// A returned promise is awaited (bounded) when the platform ends the process after a fatal exception.
 export type ExceptionCallback = (
   name: string,
   message: string,
   stack?: string,
   isFatal?: boolean
-) => void;
+) => void | Promise<void>;
