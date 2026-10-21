@@ -6,7 +6,7 @@ export interface BaseAppender {
   name: string;
   update(config?: ConfigResponse): void;
   push(log: BaseLog): void | Promise<void>;
-  flush(): void;
+  flush(): void | Promise<void>;
   destructor(): void;
   ensureSession?(ctx: RequestContext): void;
 }

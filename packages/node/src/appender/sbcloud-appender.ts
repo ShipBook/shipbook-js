@@ -163,9 +163,9 @@ export class SBCloudAppender implements BaseAppender {
     }, this.maxTime * 1000);
   }
 
-  flush(): void {
+  flush(): Promise<void> {
     InnerLog.d('flushed logs');
-    this.send();
+    return this.send();
   }
 
   private async send(): Promise<void> {

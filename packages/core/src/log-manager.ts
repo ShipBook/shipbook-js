@@ -70,8 +70,9 @@ class LogManager {
     }
   }
 
-  flush(): void {
-    this.appenders.forEach(appender => appender.flush());
+  // Resolves once every appender's flush has finished; never rejects, since most callers don't await it.
+  async flush(): Promise<void> {
+    await Promise.allSettled([...this.appenders.values()].map(appender => appender.flush()));
   }
 
   ensureSession(ctx: RequestContext): void {

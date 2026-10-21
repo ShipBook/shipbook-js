@@ -1,8 +1,8 @@
-import { Log, appenderFactory, logManager, InnerLog, connectionClient, HttpMethod, Message } from '@shipbook/core';
+import { Log, appenderFactory, logManager, InnerLog, connectionClient, HttpMethod, Message, Exception } from '@shipbook/core';
 import type { ConfigResponse } from '@shipbook/core';
 import * as fs from 'fs';
 import * as path from 'path';
-import { storage } from './adapters';
+import { storage, exceptionHandler, eventManager } from './adapters';
 import { createExpressMiddleware } from './middleware/express';
 import { createNestInterceptor } from './middleware/nestjs';
 import { SBCloudAppender } from './appender/sbcloud-appender';
@@ -27,11 +27,17 @@ const defaultConfig: ConfigResponse = {
 class ShipbookNode {
   private configRefreshTimer?: ReturnType<typeof setTimeout>;
   private configRefreshInterval = DEFAULT_CONFIG_REFRESH_INTERVAL;
+  private unsubscribeBackground?: () => void;
 
   async start(appId: string, appKey: string, appVersion?: string): Promise<string | undefined> {
     // Set deps and register class so the factory can create it during config()
     SBCloudAppender.setDeps({ appVersion: appVersion ?? this.detectAppVersion(), getToken: () => authManager.getToken() });
     appenderFactory.register('SBCloudAppender', SBCloudAppender);
+    exceptionHandler.start((name, message, stack) => {
+      logManager.push(new Exception(name, message, stack ?? ''));
+      return logManager.flush();
+    });
+    this.unsubscribeBackground ??= eventManager.onBackground(() => logManager.flush());
 
     connectionClient.setDeps({
       getToken: () => authManager.getToken(),
@@ -122,8 +128,8 @@ class ShipbookNode {
     connectionClient.BASE_URL = url.endsWith('/') ? url : url + '/';
   }
 
-  flush(): void {
-    logManager.flush();
+  flush(): Promise<void> {
+    return logManager.flush();
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
@@ -166,7 +172,10 @@ class ShipbookNode {
     if (this.configRefreshTimer) {
       clearTimeout(this.configRefreshTimer);
     }
-    logManager.flush();
+    exceptionHandler.stop();
+    this.unsubscribeBackground?.();
+    this.unsubscribeBackground = undefined;
+    await logManager.flush();
     authManager.destroy();
   }
 }

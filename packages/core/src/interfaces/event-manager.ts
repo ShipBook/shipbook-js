@@ -12,7 +12,7 @@ export interface IEventManager {
    * @param callback Function to call when app enters background
    * @returns Unsubscribe function
    */
-  onBackground(callback: () => void): () => void;
+  onBackground(callback: () => void | Promise<void>): () => void;
 
   /**
    * Subscribe to app entering foreground state
