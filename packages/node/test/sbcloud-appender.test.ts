@@ -1,6 +1,6 @@
 import { SBCloudAppender } from '../src/appender/sbcloud-appender';
 import { requestContext } from '../src/context/request-context';
-import { storage } from '../src/adapters/storage';
+import * as fs from 'fs';
 import { Message, Exception, RequestEvent, RequestEventPhase, RequestKind, Severity, connectionClient, HttpMethod } from '@shipbook/core';
 
 const tick = (ms = 50) => new Promise(resolve => setTimeout(resolve, ms));
@@ -10,9 +10,6 @@ describe('SBCloudAppender', () => {
   let requestSpy: jest.SpyInstance;
 
   beforeEach(() => {
-    storage.setMemoryOnly(true);
-    storage.clear();
-
     SBCloudAppender.setDeps({
       appVersion: '1.0.0',
       getToken: () => 'test-token',
@@ -57,12 +54,11 @@ describe('SBCloudAppender', () => {
     });
 
     it('keeps the cloud queue in memory, nothing on disk', async () => {
-      const writeSpy = jest.spyOn(storage, 'pushArrayObj');
       await appender.push(new Message('memory test', Severity.Info, 'Tag'));
       appender.flush();
       await tick();
 
-      expect(writeSpy).not.toHaveBeenCalled();
+      expect(fs.readdirSync(process.env.SHIPBOOK_STORAGE_PATH!)).toEqual(['machine_udid.json']);
       const session = (requestSpy.mock.calls[0][1] as { sessions: any[] }).sessions[0];
       expect(session.logs.map((l: any) => l.message)).toEqual(['memory test']);
     });
