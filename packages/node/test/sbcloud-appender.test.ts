@@ -241,6 +241,15 @@ describe('SBCloudAppender', () => {
       expect(sessions[0].logs.map((l: any) => l.message)).toEqual(['1', '2']);
     });
 
+    it('keeps the log whose session filled the batch, instead of throwing', async () => {
+      appender.update({ appenders: [], loggers: [], maxBatchSize: 1 });
+      await appender.push(new Message('fills the batch', Severity.Info, 'Tag'));
+      await tick();
+
+      const sessions = (requestSpy.mock.calls[0][1] as { sessions: any[] }).sessions;
+      expect(sessions[0].logs.map((l: any) => l.message)).toEqual(['fills the batch']);
+    });
+
     it('should not call connectionClient when no batches', async () => {
       appender.flush();
       await tick();
