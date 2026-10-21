@@ -1,8 +1,8 @@
-import { Log, appenderFactory, logManager, InnerLog, connectionClient, HttpMethod, Message } from '@shipbook/core';
+import { Log, appenderFactory, logManager, InnerLog, connectionClient, HttpMethod, Message, Exception } from '@shipbook/core';
 import type { ConfigResponse } from '@shipbook/core';
 import * as fs from 'fs';
 import * as path from 'path';
-import { storage } from './adapters';
+import { storage, exceptionHandler } from './adapters';
 import { createExpressMiddleware } from './middleware/express';
 import { createNestInterceptor } from './middleware/nestjs';
 import { SBCloudAppender } from './appender/sbcloud-appender';
@@ -12,6 +12,8 @@ import { runInRequest } from './middleware/request-events';
 import { instrumentMcpTransport } from './mcp/mcp-transport';
 
 const DEFAULT_CONFIG_REFRESH_INTERVAL = 300; // 5 minutes in seconds
+const SEND_BEFORE_EXIT_TIMEOUT = 2000; // ms, as Sentry's shutdownTimeout
+const EXIT_SIGNALS = ['SIGTERM', 'SIGINT'] as const;
 
 const defaultConfig: ConfigResponse = {
   appenders: [
@@ -27,11 +29,13 @@ const defaultConfig: ConfigResponse = {
 class ShipbookNode {
   private configRefreshTimer?: ReturnType<typeof setTimeout>;
   private configRefreshInterval = DEFAULT_CONFIG_REFRESH_INTERVAL;
+  private exitListeners: [string, () => void][] = [];
 
   async start(appId: string, appKey: string, appVersion?: string): Promise<string | undefined> {
     // Set deps and register class so the factory can create it during config()
     SBCloudAppender.setDeps({ appVersion: appVersion ?? this.detectAppVersion(), getToken: () => authManager.getToken() });
     appenderFactory.register('SBCloudAppender', SBCloudAppender);
+    this.captureExit();
 
     connectionClient.setDeps({
       getToken: () => authManager.getToken(),
@@ -166,8 +170,53 @@ class ShipbookNode {
     if (this.configRefreshTimer) {
       clearTimeout(this.configRefreshTimer);
     }
+    exceptionHandler.stop();
+    this.exitListeners.forEach(([event, listener]) => process.removeListener(event, listener));
+    this.exitListeners = [];
     logManager.flush();
     authManager.destroy();
+  }
+
+  // Listening to these events takes over Node's own reaction (print and exit, or terminate), so it's redone here unless the app has its own listener.
+  private captureExit(): void {
+    if (exceptionHandler.isActive()) return;
+    let exiting = false;
+    exceptionHandler.start((name, message, stack, isFatal) => {
+      logManager.push(new Exception(name, message, stack ?? ''));
+      const event = isFatal ? 'uncaughtException' : 'unhandledRejection';
+      if (process.listenerCount(event) > 1) return;
+      // Node's default for an unhandled rejection is to crash (--unhandled-rejections=throw); warn and none keep running.
+      const rejectionMode = [...process.execArgv, ...(process.env.NODE_OPTIONS?.split(' ') ?? [])]
+        .find(arg => arg.startsWith('--unhandled-rejections='))?.split('=')[1] ?? 'throw';
+      if (!isFatal && !['throw', 'strict'].includes(rejectionMode)) return;
+      if (exiting) return;
+      exiting = true;
+      console.error(stack ?? `${name}: ${message}`);
+      this.sendBeforeExit().finally(() => process.exit(1));
+    });
+
+    for (const signal of EXIT_SIGNALS) {
+      const onSignal = () => {
+        if (process.listenerCount(signal) > 1) {
+          this.sendBeforeExit();
+          return;
+        }
+        this.sendBeforeExit().finally(() => {
+          process.removeListener(signal, onSignal);
+          process.kill(process.pid, signal);
+        });
+      };
+      process.on(signal, onSignal);
+      this.exitListeners.push([signal, onSignal]);
+    }
+    const onBeforeExit = () => logManager.flush();
+    process.on('beforeExit', onBeforeExit);
+    this.exitListeners.push(['beforeExit', onBeforeExit]);
+  }
+
+  private sendBeforeExit(): Promise<void> {
+    const timeout = new Promise<void>(resolve => setTimeout(resolve, SEND_BEFORE_EXIT_TIMEOUT));
+    return Promise.race([SBCloudAppender.instance?.flush(), timeout]);
   }
 }
 

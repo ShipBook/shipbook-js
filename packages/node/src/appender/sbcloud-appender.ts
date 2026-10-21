@@ -28,6 +28,7 @@ export interface SBCloudAppenderDeps {
  * and send() uploads them as they are.
  */
 export class SBCloudAppender implements BaseAppender {
+  static instance?: SBCloudAppender;
   name: string;
 
   private cloudQueue = new Map<string, Session>();
@@ -57,6 +58,7 @@ export class SBCloudAppender implements BaseAppender {
 
   constructor(name: string, config?: ConfigResponse) {
     this.name = name;
+    SBCloudAppender.instance = this;
     this.getToken = SBCloudAppender._deps.getToken;
     this.deviceInfo = {
       udid: randomUUID(),  // placeholder, replaced by initMachineUdid if storage has one
@@ -163,9 +165,9 @@ export class SBCloudAppender implements BaseAppender {
     }, this.maxTime * 1000);
   }
 
-  flush(): void {
+  flush(): Promise<void> {
     InnerLog.d('flushed logs');
-    this.send();
+    return this.send();
   }
 
   private async send(): Promise<void> {
