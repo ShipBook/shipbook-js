@@ -32,8 +32,8 @@ class ShipbookNode {
   private configKey!: string;
 
   async start(appId: string, appKey: string, appVersion?: string): Promise<string | undefined> {
-    // Set deps and register class so the factory can create it during config()
-    SBCloudAppender.setDeps({ appVersion: appVersion ?? this.detectAppVersion(), getToken: () => authManager.getToken() });
+    // Set before config() makes the cloud appender, which reads it
+    authManager.appVersion = appVersion ?? this.detectAppVersion();
     appenderFactory.register('SBCloudAppender', SBCloudAppender);
     this.configKey = `config_${appId}`;
     exceptionHandler.start((name, message, stack) => {

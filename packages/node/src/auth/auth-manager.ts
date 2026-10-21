@@ -12,6 +12,8 @@ class AuthManager {
   private refreshTimer?: ReturnType<typeof setTimeout>;
   private appId?: string;
   private appKey?: string;
+  // The app's version, as on mobile where the appender reads it from SessionManager's login.
+  appVersion?: string;
 
   async login(appId: string, appKey: string): Promise<LoginResult | undefined> {
     this.appId = appId;
