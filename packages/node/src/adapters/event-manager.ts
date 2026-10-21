@@ -1,5 +1,5 @@
 import type { IEventManager, AppState } from '@shipbook/core';
-import { untilDoneOrTimeout } from './before-exit';
+import { untilDoneOrTimeout } from '../utils/before-exit';
 
 const EXIT_SIGNALS = ['SIGTERM', 'SIGINT'] as const;
 

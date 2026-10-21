@@ -1,5 +1,5 @@
 import type { IExceptionHandler, ExceptionCallback } from '@shipbook/core';
-import { untilDoneOrTimeout } from './before-exit';
+import { untilDoneOrTimeout } from '../utils/before-exit';
 
 /**
  * Node.js exception handler adapter using process events.
