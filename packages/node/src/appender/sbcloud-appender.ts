@@ -3,6 +3,7 @@ import { Severity, SeverityUtil, LogType, RequestEventPhase, InnerLog, connectio
 import { PLATFORM_VERSION } from '../generated/version';
 import { requestContext } from '../context/request-context';
 import { storage } from '../adapters/storage';
+import { authManager } from '../auth/auth-manager';
 import { randomUUID } from 'crypto';
 import * as os from 'os';
 
@@ -12,11 +13,6 @@ const MACHINE_UDID_KEY = 'machine_udid';
 interface FlushQueue {
   logs: BaseLog[];
   saved: boolean;
-}
-
-export interface SBCloudAppenderDeps {
-  appVersion?: string;
-  getToken: () => string | undefined;
 }
 
 /**
@@ -48,23 +44,15 @@ export class SBCloudAppender implements BaseAppender {
   private appInfo: AppVersionInfo;
   private sdkInfo: VersionInfo;
 
-  private static _deps: SBCloudAppenderDeps;
-  private getToken: () => string | undefined;
-
-  static setDeps(deps: SBCloudAppenderDeps): void {
-    SBCloudAppender._deps = deps;
-  }
-
   constructor(name: string, config?: ConfigResponse) {
     this.name = name;
-    this.getToken = SBCloudAppender._deps.getToken;
     this.deviceInfo = {
       udid: randomUUID(),  // placeholder, replaced by initMachineUdid if storage has one
       os: Platform.NODE,
       deviceName: os.hostname()
     };
     this.osInfo = { name: os.platform(), version: os.release() };
-    this.appInfo = { version: SBCloudAppender._deps.appVersion };
+    this.appInfo = { version: authManager.appVersion };
     this.sdkInfo = { version: `core:${CORE_VERSION}/node:${PLATFORM_VERSION}` };
     this.update(config);
     this.initMachineUdid();
@@ -183,7 +171,7 @@ export class SBCloudAppender implements BaseAppender {
       clearTimeout(this.timer);
       this.timer = undefined;
     }
-    if (!this.getToken()) {
+    if (!authManager.getToken()) {
       InnerLog.d('No auth token yet, cannot send logs');
       return;
     }

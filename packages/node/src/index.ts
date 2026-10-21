@@ -33,8 +33,8 @@ class ShipbookNode {
   private configKey!: string;
 
   async start(appId: string, appKey: string, appVersion?: string): Promise<string | undefined> {
-    // Set deps and register class so the factory can create it during config()
-    SBCloudAppender.setDeps({ appVersion: appVersion ?? this.detectAppVersion(), getToken: () => authManager.getToken() });
+    // Set before config() makes the cloud appender, which reads it
+    authManager.appVersion = appVersion ?? this.detectAppVersion();
     appenderFactory.register('SBCloudAppender', SBCloudAppender);
     // Applied at once, as mobile applies its config before anything async, so startup logs don't miss the cloud while the cache is read.
     logManager.config(defaultConfig);

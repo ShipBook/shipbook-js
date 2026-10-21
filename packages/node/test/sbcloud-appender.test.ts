@@ -1,6 +1,7 @@
 import { SBCloudAppender } from '../src/appender/sbcloud-appender';
 import { requestContext } from '../src/context/request-context';
 import { storage } from '../src/adapters/storage';
+import { authManager } from '../src/auth/auth-manager';
 import { Message, Exception, RequestEvent, RequestEventPhase, RequestKind, Severity, connectionClient, HttpMethod } from '@shipbook/core';
 
 const tick = (ms = 50) => new Promise(resolve => setTimeout(resolve, ms));
@@ -8,12 +9,11 @@ const tick = (ms = 50) => new Promise(resolve => setTimeout(resolve, ms));
 describe('SBCloudAppender', () => {
   let appender: SBCloudAppender;
   let requestSpy: jest.SpyInstance;
+  let getToken: jest.SpyInstance;
 
   beforeEach(() => {
-    SBCloudAppender.setDeps({
-      appVersion: '1.0.0',
-      getToken: () => 'test-token',
-    });
+    authManager.appVersion = '1.0.0';
+    getToken = jest.spyOn(authManager, 'getToken').mockReturnValue('test-token');
 
     requestSpy = jest.spyOn(connectionClient, 'request').mockResolvedValue({
       ok: true,
@@ -189,7 +189,7 @@ describe('SBCloudAppender', () => {
 
     it('empties the queue at maxLogSize while it cannot upload, then keeps saving', async () => {
       let token: string | undefined;
-      SBCloudAppender.setDeps({ getToken: () => token });
+      getToken.mockImplementation(() => token);
       const offline = new SBCloudAppender('offline');
       offline.update({ appenders: [], loggers: [], maxLogSize: 4 });
       for (const message of ['1', '2', '3', '4']) await offline.push(new Message(message, Severity.Info, 'Tag'));
@@ -204,7 +204,7 @@ describe('SBCloudAppender', () => {
     });
 
     it('should not call connectionClient when no token', async () => {
-      SBCloudAppender.setDeps({ getToken: () => undefined });
+      getToken.mockReturnValue(undefined);
       const noTokenAppender = new SBCloudAppender('no-token');
 
       await noTokenAppender.push(new Message('no token', Severity.Info, 'Tag'));
