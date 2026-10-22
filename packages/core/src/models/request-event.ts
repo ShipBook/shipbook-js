@@ -9,7 +9,8 @@ export enum RequestEventPhase {
 // The protocol a request came in on; each kind fills its own detail fields (http: method/route/status).
 export enum RequestKind {
   Http = 'http',
-  Rpc = 'rpc'
+  Rpc = 'rpc',
+  Job = 'job'  // a background job's run
 }
 
 // Whether a request failed, the same for every kind; each kind maps its own result onto it.
