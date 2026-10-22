@@ -40,7 +40,7 @@ export class RequestContextManager {
 
   // For background jobs (manual) - no traceId since there's no HTTP request
   // Each job run gets a unique session ID
-  runJob<T>(options: JobContextOptions, fn: () => T | Promise<T>): T | Promise<T> {
+  runJob<T>(options: JobContextOptions, fn: () => T): T {
     const context: RequestContext = {
       sessionId: randomUUID(),
       // No traceId - background jobs don't have HTTP requests

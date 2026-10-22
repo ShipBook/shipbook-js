@@ -23,7 +23,7 @@ describe('Nest Interceptor', () => {
   let ensureSpy: jest.SpyInstance;
 
   beforeEach(() => {
-    ensureSpy = jest.spyOn(logManager, 'ensureSession').mockImplementation(() => {});
+    ensureSpy = jest.spyOn(logManager, 'startRequest').mockImplementation(() => {});
   });
 
   afterEach(() => {

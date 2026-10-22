@@ -263,14 +263,14 @@ describe('Express Middleware', () => {
     let ensureSpy: jest.SpyInstance;
 
     beforeEach(() => {
-      ensureSpy = jest.spyOn(logManager, 'ensureSession').mockImplementation(() => {});
+      ensureSpy = jest.spyOn(logManager, 'startRequest').mockImplementation(() => {});
     });
 
     afterEach(() => {
       ensureSpy.mockRestore();
     });
 
-    it('calls logManager.ensureSession at middleware start, before next()', () => {
+    it('calls logManager.startRequest at middleware start, before next()', () => {
       const middleware = createExpressMiddleware();
       const req = createMockRequest();
       (req as any).sessionID = 'stub-session-1';
@@ -300,9 +300,9 @@ describe('Express Middleware', () => {
       );
     });
 
-    it('is safe when no appender implements ensureSession (logManager just no-ops)', () => {
+    it('is safe when no appender implements startRequest (logManager just no-ops)', () => {
       // Stop spying and let the real logManager run. ConsoleAppender (the default) doesn't
-      // implement ensureSession, so the forEach optional-chains to a no-op — must not throw.
+      // implement startRequest, so the forEach optional-chains to a no-op — must not throw.
       ensureSpy.mockRestore();
       const middleware = createExpressMiddleware();
       const req = createMockRequest();
@@ -318,7 +318,7 @@ describe('Express Middleware', () => {
 
     beforeEach(() => {
       pushed = [];
-      jest.spyOn(logManager, 'ensureSession').mockImplementation(() => {});
+      jest.spyOn(logManager, 'startRequest').mockImplementation(() => {});
       pushSpy = jest.spyOn(logManager, 'push').mockImplementation((log) => {
         const ctx = requestContext.get();
         pushed.push({ event: log as RequestEvent, requestId: ctx?.requestId, sessionId: ctx?.sessionId });

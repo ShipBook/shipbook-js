@@ -30,6 +30,7 @@ export function trackRequest(ctx: RequestContext, res: ServerResponse, method: s
 // A request without HTTP (an MCP call over stdio, a queue message) inside the given session; end() writes how it finished.
 export function openRequest(session: RequestContext, kind: RequestKind, operation?: string) {
   const ctx: RequestContext = { ...session, requestId: randomUUID(), startTime: new Date() };
+  logManager.startRequest(ctx);
   const start = requestContext.enter(ctx, () => {
     const event = new RequestEvent(RequestEventPhase.Start, kind, undefined, undefined, operation);
     logManager.push(event);

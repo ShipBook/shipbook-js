@@ -1,4 +1,4 @@
-import { Log, appenderFactory, logManager, InnerLog, connectionClient, HttpMethod, Message, Exception } from '@shipbook/core';
+import { Log, appenderFactory, logManager, InnerLog, connectionClient, HttpMethod, Message, Exception, RequestKind } from '@shipbook/core';
 import type { ConfigResponse } from '@shipbook/core';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -153,12 +153,9 @@ class ShipbookNode {
   // NestJS interceptor factory
   nestjsInterceptor = createNestInterceptor;
 
-  // For background jobs - wrap code to get organized session grouping
-  runInContext<T>(
-    options: { jobName: string; metadata?: Record<string, unknown> },
-    fn: () => T | Promise<T>
-  ): T | Promise<T> {
-    return requestContext.runJob(options, fn);
+  // A background job's run: its own session, and one request of kind Job in it, so it counts and ends like a request
+  runInContext<T>(options: { jobName: string; metadata?: Record<string, unknown> }, fn: () => T | Promise<T>): Promise<T> {
+    return requestContext.runJob(options, () => runInRequest(RequestKind.Job, options.jobName, fn));
   }
 
   // Work that isn't an HTTP request (a queue message, a WebSocket message) read as one request of the current session

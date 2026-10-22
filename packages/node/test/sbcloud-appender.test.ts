@@ -320,9 +320,24 @@ describe('SBCloudAppender', () => {
 
   });
 
-  describe('ensureSession()', () => {
+  describe('startRequest()', () => {
+    it('counts the requests of a session, and none for a session that only logged', async () => {
+      const grouped = { sessionId: 'grouped', startTime: new Date(), isBackground: false };
+      appender.startRequest(grouped);
+      appender.startRequest(grouped);
+      await requestContext.run({ sessionId: 'logged-only' }, async () => {
+        await appender.push(new Message('log', Severity.Info, 'Tag'));
+      });
+      appender.flush();
+      await tick();
+
+      const sessions = (requestSpy.mock.calls[0][1] as { sessions: any[] }).sessions;
+      expect(sessions.find(s => s.sessionId === 'grouped').requests).toBe(2);
+      expect(sessions.find(s => s.sessionId === 'logged-only').requests).toBe(0);
+    });
+
     it('creates an empty-log session stub when called without prior push', async () => {
-      await appender.ensureSession({
+      await appender.startRequest({
         sessionId: 'stub-session',
         startTime: new Date(),
         isBackground: false,
@@ -344,7 +359,7 @@ describe('SBCloudAppender', () => {
         await appender.push(new Message('real log', Severity.Info, 'Tag'));
       });
 
-      await appender.ensureSession({
+      await appender.startRequest({
         sessionId: 'with-logs',
         startTime: new Date(),
         isBackground: false
@@ -360,7 +375,7 @@ describe('SBCloudAppender', () => {
     });
 
     it('stamps the raw callerSessionLink from the context onto the session', async () => {
-      await appender.ensureSession({
+      await appender.startRequest({
         sessionId: 'linked-session',
         startTime: new Date(),
         isBackground: false,
@@ -375,11 +390,11 @@ describe('SBCloudAppender', () => {
 
     it('attaches stub alongside other sessions with logs in the same ingest', async () => {
       // Use Info (below default flushSeverity) so the push doesn't trigger an immediate
-      // flush; otherwise the has-log session would ship before ensureSession() runs.
+      // flush; otherwise the has-log session would ship before startRequest() runs.
       await requestContext.run({ sessionId: 'has-log' }, async () => {
         await appender.push(new Message('log', Severity.Info, 'Tag'));
       });
-      await appender.ensureSession({
+      await appender.startRequest({
         sessionId: 'empty-stub',
         startTime: new Date(),
         isBackground: false

@@ -70,8 +70,7 @@ export class SBCloudAppender implements BaseAppender {
   push(log: BaseLog): void {
     InnerLog.d('push() called');
     const ctx = requestContext.get() ?? requestContext.background;
-
-    this.ensureSession(ctx);
+    const session = this.session(ctx);
 
     // requestTime keeps a request's logs contiguous in the server's display-order sort.
     const logWithTrace = { ...log, traceId: ctx.traceId, requestId: ctx.requestId, requestTime: ctx.requestId ? ctx.startTime : undefined };
@@ -88,23 +87,28 @@ export class SBCloudAppender implements BaseAppender {
     }
 
     // The flushQueue is this log's context: it is saved with it, in order.
-    this.cloudQueue.get(ctx.sessionId)!.logs!.push(...flushQueue.logs, logWithTrace);
+    session.logs!.push(...flushQueue.logs, logWithTrace);
     this.queueSize += flushQueue.logs.length + 1;
     flushQueue.logs = [];
     flushQueue.saved = true;
     this.afterSave();
   }
 
-  // Without this, sessions whose logs all fall below flushSeverity never reach the server, so stats compute against only error-bearing sessions.
-  ensureSession(ctx: RequestContext): void {
+  // Counted on the session, not as a log: the server adds it up, and a request whose logs all fall below flushSeverity still counts.
+  startRequest(ctx: RequestContext): void {
+    this.session(ctx).requests!++;
+  }
+
+  private session(ctx: RequestContext): Session {
     if (this.queueSize >= this.maxLogSize) {
       InnerLog.d('cloud queue over maxLogSize, dropping it');
       this.cloudQueue.clear();
       this.queueSize = 0;
     }
-    if (this.cloudQueue.has(ctx.sessionId)) return;
+    const queued = this.cloudQueue.get(ctx.sessionId);
+    if (queued) return queued;
 
-    this.cloudQueue.set(ctx.sessionId, {
+    const session: Session = {
       sessionId: ctx.sessionId,
       userInfo: ctx.user,
       metadata: ctx.metadata || { type: 'background' },
@@ -117,10 +121,13 @@ export class SBCloudAppender implements BaseAppender {
       os: this.osInfo,
       appInfo: this.appInfo,
       sdkInfo: this.sdkInfo,
-      logs: []
-    });
+      logs: [],
+      requests: 0
+    };
+    this.cloudQueue.set(ctx.sessionId, session);
     this.queueSize++;
     this.afterSave();
+    return session;
   }
 
   private afterSave(): void {
