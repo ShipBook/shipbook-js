@@ -43,8 +43,7 @@ export function createNestInterceptor(extractors: NestExtractors = {}) {
         isBackground: false
       };
 
-      // Without this, sessions whose logs all fall below flushSeverity never reach the server.
-      logManager.ensureSession(ctx);
+      logManager.startRequest(ctx);
 
       // Use Observable constructor to wrap the async context
       const { Observable: RxObservable } = require('rxjs');

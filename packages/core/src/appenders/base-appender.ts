@@ -8,5 +8,6 @@ export interface BaseAppender {
   push(log: BaseLog): void | Promise<void>;
   flush(): void | Promise<void>;
   destructor(): void;
-  ensureSession?(ctx: RequestContext): void;
+  // A request began in ctx: queue its session and count it, whether or not it ever logs.
+  startRequest?(ctx: RequestContext): void;
 }

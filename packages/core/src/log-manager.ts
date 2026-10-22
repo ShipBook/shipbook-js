@@ -75,8 +75,8 @@ class LogManager {
     await Promise.allSettled([...this.appenders.values()].map(appender => appender.flush()));
   }
 
-  ensureSession(ctx: RequestContext): void {
-    this.appenders.forEach(appender => appender.ensureSession?.(ctx));
+  startRequest(ctx: RequestContext): void {
+    this.appenders.forEach(appender => appender.startRequest?.(ctx));
   }
 
   getSeverity(tag: string): Severity {

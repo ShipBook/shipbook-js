@@ -27,7 +27,7 @@ describe('MCP transport', () => {
 
   beforeEach(() => {
     pushed = [];
-    jest.spyOn(logManager, 'ensureSession').mockImplementation(() => {});
+    jest.spyOn(logManager, 'startRequest').mockImplementation(() => {});
     jest.spyOn(logManager, 'push').mockImplementation((log) => {
       const ctx = requestContext.get();
       pushed.push({ log, requestId: ctx?.requestId, sessionId: ctx?.sessionId });

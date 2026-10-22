@@ -118,6 +118,7 @@ export interface Session {
   os: OsInfo;
   userInfo?: User;
   logs?: BaseLog[];
+  requests?: number;  // Server SDKs: requests started in this session during the upload; the server counts them
 }
 
 // Cross-app session link: client SDKs forward the server-minted value; backend SDKs pass it back raw.
