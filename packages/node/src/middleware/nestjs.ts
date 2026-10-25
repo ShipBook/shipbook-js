@@ -10,6 +10,7 @@ export interface NestExtractors {
   user?: (ctx: ExecutionContext) => User | undefined;
   session?: (ctx: ExecutionContext) => string | undefined;
   trace?: (ctx: ExecutionContext) => string | undefined;
+  metadata?: (ctx: ExecutionContext) => Record<string, unknown>;  // Stored on the request's start event, with its path, ip and user agent
 }
 
 export function createNestInterceptor(extractors: NestExtractors = {}) {
@@ -34,11 +35,6 @@ export function createNestInterceptor(extractors: NestExtractors = {}) {
         requestId: randomUUID(),
         callerSessionLink,
         user,
-        metadata: {
-          method: req.method,
-          path,
-          ip: req.ip
-        },
         startTime: new Date(),
         isBackground: false
       };
@@ -49,7 +45,8 @@ export function createNestInterceptor(extractors: NestExtractors = {}) {
       const { Observable: RxObservable } = require('rxjs');
       return new RxObservable((subscriber: any) => {
         requestContext.enter(ctx, () => {
-          trackRequest(ctx, res.raw ?? res, req.method, () => req.route?.path ?? req.routeOptions?.url ?? path, () => req.body);
+          trackRequest(ctx, res.raw ?? res, req.method, () => req.route?.path ?? req.routeOptions?.url ?? path, () => req.body,
+            { path, ip: req.ip, userAgent: req.headers['user-agent'], ...extractors.metadata?.(context) });
           next.handle().subscribe(subscriber);
         });
       });

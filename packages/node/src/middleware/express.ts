@@ -9,7 +9,7 @@ export interface ExpressExtractors {
   user?: (req: Request) => User | undefined;
   session?: (req: Request) => string | undefined;
   trace?: (req: Request) => string | undefined;
-  metadata?: (req: Request) => Record<string, unknown>;
+  metadata?: (req: Request) => Record<string, unknown>;  // Stored on the request's start event, with its path, ip and user agent
 }
 
 const defaultExtractors: ExpressExtractors = {
@@ -43,13 +43,6 @@ export function createExpressMiddleware(extractors: ExpressExtractors = {}) {
       requestId: randomUUID(),
       callerSessionLink,
       user: merged.user?.(req),
-      metadata: {
-        method: req.method,
-        path: req.path,
-        ip: req.ip,
-        userAgent: req.headers['user-agent'],
-        ...merged.metadata?.(req)
-      },
       startTime: new Date(),
       isBackground: false
     };
@@ -57,7 +50,8 @@ export function createExpressMiddleware(extractors: ExpressExtractors = {}) {
     logManager.startRequest(context);
 
     requestContext.enter(context, () => {
-      trackRequest(context, res, req.method, () => req.route ? req.baseUrl + req.route.path : req.path, () => req.body);
+      trackRequest(context, res, req.method, () => req.route ? req.baseUrl + req.route.path : req.path, () => req.body,
+        { path: req.path, ip: req.ip, userAgent: req.headers['user-agent'], ...merged.metadata?.(req) });
       next();
     });
   };

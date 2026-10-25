@@ -15,8 +15,9 @@ export function jsonRpcOperation(body: unknown) {
 }
 
 // Call inside the request's context; 'finish' fires outside it (re-entered for the end), and routing and body parsing may only be done by then.
-export function trackRequest(ctx: RequestContext, res: ServerResponse, method: string, route: () => string, body: () => unknown) {
+export function trackRequest(ctx: RequestContext, res: ServerResponse, method: string, route: () => string, body: () => unknown, metadata?: Record<string, unknown>) {
   const start = new RequestEvent(RequestEventPhase.Start, RequestKind.Http, method, route(), jsonRpcOperation(body()));
+  start.metadata = metadata;
   logManager.push(start);
   res.on('finish', () => {
     const duration = Date.now() - ctx.startTime.getTime();

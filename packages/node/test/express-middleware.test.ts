@@ -51,7 +51,9 @@ describe('Express Middleware', () => {
       });
     });
 
-    it('should set context with request metadata', (done) => {
+    it('puts the request\'s path, ip and user agent on its start event, not on the session', (done) => {
+      const pushed: RequestEvent[] = [];
+      const pushSpy = jest.spyOn(logManager, 'push').mockImplementation((log) => { pushed.push(log as RequestEvent); });
       const middleware = createExpressMiddleware();
       const req = createMockRequest({
         method: 'POST',
@@ -62,10 +64,10 @@ describe('Express Middleware', () => {
       middleware(req, res, () => {
         const ctx = requestContext.get();
         expect(ctx).toBeDefined();
-        expect(ctx?.metadata?.method).toBe('POST');
-        expect(ctx?.metadata?.path).toBe('/api/users');
-        expect(ctx?.metadata?.ip).toBe('127.0.0.1');
-        expect(ctx?.metadata?.userAgent).toBe('Mozilla/5.0');
+        expect(ctx?.metadata).toBeUndefined();
+        expect(pushed[0].event).toBe(RequestEventPhase.Start);
+        expect(pushed[0].metadata).toEqual({ path: '/api/users', ip: '127.0.0.1', userAgent: 'Mozilla/5.0' });
+        pushSpy.mockRestore();
         done();
       });
     });
@@ -237,7 +239,9 @@ describe('Express Middleware', () => {
       });
     });
 
-    it('should use custom metadata extractor', (done) => {
+    it('adds the metadata extractor\'s fields to the start event next to the defaults', (done) => {
+      const pushed: RequestEvent[] = [];
+      const pushSpy = jest.spyOn(logManager, 'push').mockImplementation((log) => { pushed.push(log as RequestEvent); });
       const middleware = createExpressMiddleware({
         metadata: (req) => ({
           customField: 'custom-value',
@@ -249,11 +253,8 @@ describe('Express Middleware', () => {
       const res = createMockResponse();
 
       middleware(req, res, () => {
-        const ctx = requestContext.get();
-        expect(ctx?.metadata?.customField).toBe('custom-value');
-        expect(ctx?.metadata?.requestSize).toBe(1234);
-        // Should still have default metadata
-        expect(ctx?.metadata?.method).toBe('GET');
+        expect(pushed[0].metadata).toEqual({ path: '/api/test', ip: '127.0.0.1', userAgent: 'Mozilla/5.0', customField: 'custom-value', requestSize: 1234 });
+        pushSpy.mockRestore();
         done();
       });
     });
@@ -284,7 +285,7 @@ describe('Express Middleware', () => {
       const ctxArg = ensureSpy.mock.calls[0][0];
       expect(ctxArg.sessionId).toBe('stub-session-1');
       expect(ctxArg.isBackground).toBe(false);
-      expect(ctxArg.metadata.method).toBe('GET');
+      expect(ctxArg.metadata).toBeUndefined();
     });
 
     it('falls back to a generated UUID sessionId when none is extracted', () => {

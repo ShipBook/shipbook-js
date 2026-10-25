@@ -82,7 +82,8 @@ describe('Nest Interceptor', () => {
       { event: RequestEventPhase.Start, method: 'GET', route: '/api/orders/:id' },
       { event: RequestEventPhase.End, route: '/api/orders/:id', status: 404 }
     ]);
-    expect(ensureSpy.mock.calls[0][0].metadata.path).toBe('/api/orders/8812');
+    expect(ensureSpy.mock.calls[0][0].metadata).toBeUndefined();
+    expect(pushed[0].metadata).toEqual({ path: '/api/orders/8812', ip: '10.0.0.1', userAgent: undefined });
   });
 
   it('falls back to the extractor without the header', () => {

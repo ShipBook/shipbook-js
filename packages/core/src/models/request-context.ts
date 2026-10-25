@@ -10,7 +10,7 @@ export interface RequestContext {
   requestId?: string;      // Minted per HTTP request; groups the request's logs and its start/end events
   callerSessionLink?: string;  // Raw x-shipbook-session header; parsed by the server
   user?: User;             // Full user object (userId, userName, email, etc.)
-  metadata?: Record<string, unknown>;  // method, path, ip, etc.
+  metadata?: Record<string, unknown>;  // Session-level, constant for its life (a job's options, an MCP transport); a request's facts go on its start event
   startTime: Date;
   isBackground?: boolean;  // True for background jobs, false for HTTP requests
   jobName?: string;        // Name of the background job (for filtering/searching)

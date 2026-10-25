@@ -32,6 +32,7 @@ export default class RequestEvent extends BaseEvent {
   outcome?: RequestOutcome;
   duration?: number;
   errorCode?: number; // rpc: the JSON-RPC error code
+  metadata?: Record<string, unknown>; // start only: the request's facts beyond its route (path, ip, user agent, the app's extractor)
 
   constructor(event: RequestEventPhase, kind: RequestKind, method?: string, route?: string, operation?: string,
     startTime?: Date, startOrderId?: number, status?: number, outcome?: RequestOutcome, duration?: number, errorCode?: number) {
