@@ -1,10 +1,10 @@
 import { AsyncLocalStorage } from 'async_hooks';
 import { randomUUID } from 'crypto';
-import type { RequestContext } from '@shipbook/core';
+import type { RequestContext, Attributes } from '@shipbook/core';
 
 export interface JobContextOptions {
   jobName: string;
-  metadata?: Record<string, unknown>;
+  attributes?: Attributes;
 }
 
 export class RequestContextManager {
@@ -14,8 +14,7 @@ export class RequestContextManager {
   readonly background: RequestContext = {
     sessionId: randomUUID(),
     startTime: new Date(),
-    isBackground: true,
-    metadata: { type: 'background' }
+    isBackground: true
   };
 
   // Runs fn in exactly this context, e.g. to re-enter a request's context from an event fired outside it.
@@ -31,7 +30,7 @@ export class RequestContextManager {
       requestId: context.requestId,
       callerSessionLink: context.callerSessionLink,
       user: context.user,
-      metadata: context.metadata,
+      attributes: context.attributes,
       startTime: new Date(),
       isBackground: false  // HTTP requests are not background jobs
     };
@@ -44,7 +43,7 @@ export class RequestContextManager {
     const context: RequestContext = {
       sessionId: randomUUID(),
       // No traceId - background jobs don't have HTTP requests
-      metadata: options.metadata,
+      attributes: options.attributes,
       startTime: new Date(),
       isBackground: true,
       jobName: options.jobName

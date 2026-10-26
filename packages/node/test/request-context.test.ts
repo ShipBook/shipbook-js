@@ -7,7 +7,7 @@ describe('RequestContextManager', () => {
         sessionId: 'test-session-123',
         traceId: 'trace-abc',
         user: { userId: 'user-1', userName: 'Test User' },
-        metadata: { method: 'GET', path: '/api/test' }
+        attributes: { tenant: 'acme' }
       };
 
       requestContext.run(context, () => {
@@ -16,7 +16,7 @@ describe('RequestContextManager', () => {
         expect(retrieved?.sessionId).toBe('test-session-123');
         expect(retrieved?.traceId).toBe('trace-abc');
         expect(retrieved?.user?.userId).toBe('user-1');
-        expect(retrieved?.metadata?.method).toBe('GET');
+        expect(retrieved?.attributes?.tenant).toBe('acme');
         expect(retrieved?.startTime).toBeInstanceOf(Date);
       });
     });
@@ -85,13 +85,13 @@ describe('RequestContextManager', () => {
       expect(result).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
     });
 
-    it('should pass custom metadata', () => {
+    it('should pass custom attributes', () => {
       requestContext.runJob(
-        { jobName: 'test', metadata: { priority: 'high', queue: 'default' } },
+        { jobName: 'test', attributes: { priority: 'high', queue: 'default' } },
         () => {
           const retrieved = requestContext.get();
-          expect(retrieved?.metadata?.priority).toBe('high');
-          expect(retrieved?.metadata?.queue).toBe('default');
+          expect(retrieved?.attributes?.priority).toBe('high');
+          expect(retrieved?.attributes?.queue).toBe('default');
           expect(retrieved?.jobName).toBe('test');
         }
       );

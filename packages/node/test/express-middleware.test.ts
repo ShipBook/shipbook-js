@@ -64,9 +64,9 @@ describe('Express Middleware', () => {
       middleware(req, res, () => {
         const ctx = requestContext.get();
         expect(ctx).toBeDefined();
-        expect(ctx?.metadata).toBeUndefined();
-        expect(pushed[0].event).toBe(RequestEventPhase.Start);
-        expect(pushed[0].metadata).toEqual({ path: '/api/users', ip: '127.0.0.1', userAgent: 'Mozilla/5.0' });
+        expect(ctx?.attributes).toBeUndefined();
+        expect(pushed[0]).toMatchObject({ event: RequestEventPhase.Start, path: '/api/users', ip: '127.0.0.1', userAgent: 'Mozilla/5.0' });
+        expect(pushed[0].attributes).toBeUndefined();
         pushSpy.mockRestore();
         done();
       });
@@ -239,11 +239,11 @@ describe('Express Middleware', () => {
       });
     });
 
-    it('adds the metadata extractor\'s fields to the start event next to the defaults', (done) => {
+    it('puts the attributes extractor\'s fields on the start event', (done) => {
       const pushed: RequestEvent[] = [];
       const pushSpy = jest.spyOn(logManager, 'push').mockImplementation((log) => { pushed.push(log as RequestEvent); });
       const middleware = createExpressMiddleware({
-        metadata: (req) => ({
+        attributes: (req) => ({
           customField: 'custom-value',
           requestSize: 1234
         })
@@ -253,7 +253,7 @@ describe('Express Middleware', () => {
       const res = createMockResponse();
 
       middleware(req, res, () => {
-        expect(pushed[0].metadata).toEqual({ path: '/api/test', ip: '127.0.0.1', userAgent: 'Mozilla/5.0', customField: 'custom-value', requestSize: 1234 });
+        expect(pushed[0]).toMatchObject({ path: '/api/test', ip: '127.0.0.1', attributes: { customField: 'custom-value', requestSize: 1234 } });
         pushSpy.mockRestore();
         done();
       });
@@ -285,7 +285,7 @@ describe('Express Middleware', () => {
       const ctxArg = ensureSpy.mock.calls[0][0];
       expect(ctxArg.sessionId).toBe('stub-session-1');
       expect(ctxArg.isBackground).toBe(false);
-      expect(ctxArg.metadata).toBeUndefined();
+      expect(ctxArg.attributes).toBeUndefined();
     });
 
     it('falls back to a generated UUID sessionId when none is extracted', () => {

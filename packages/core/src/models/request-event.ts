@@ -1,5 +1,6 @@
 import BaseEvent from './base-event';
 import { LogType } from './base-log';
+import type { Attributes } from './attributes';
 
 export enum RequestEventPhase {
   Start = 'start',
@@ -32,7 +33,10 @@ export default class RequestEvent extends BaseEvent {
   outcome?: RequestOutcome;
   duration?: number;
   errorCode?: number; // rpc: the JSON-RPC error code
-  metadata?: Record<string, unknown>; // start only: the request's facts beyond its route (path, ip, user agent, the app's extractor)
+  path?: string; // start only: the concrete path (route is the template)
+  ip?: string; // start only
+  userAgent?: string; // start only
+  attributes?: Attributes; // start only: the app's own facts about the request (the middleware's extractor)
 
   constructor(event: RequestEventPhase, kind: RequestKind, method?: string, route?: string, operation?: string,
     startTime?: Date, startOrderId?: number, status?: number, outcome?: RequestOutcome, duration?: number, errorCode?: number) {

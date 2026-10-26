@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { randomUUID } from 'crypto';
-import type { User, RequestContext } from '@shipbook/core';
+import type { User, RequestContext, Attributes } from '@shipbook/core';
 import { logManager, SESSION_LINK_HEADER } from '@shipbook/core';
 import { requestContext } from '../context/request-context';
 import { trackRequest } from './request-events';
@@ -9,7 +9,7 @@ export interface ExpressExtractors {
   user?: (req: Request) => User | undefined;
   session?: (req: Request) => string | undefined;
   trace?: (req: Request) => string | undefined;
-  metadata?: (req: Request) => Record<string, unknown>;  // Stored on the request's start event, with its path, ip and user agent
+  attributes?: (req: Request) => Attributes;  // The app's own facts about the request, stored on its start event
 }
 
 const defaultExtractors: ExpressExtractors = {
@@ -51,7 +51,7 @@ export function createExpressMiddleware(extractors: ExpressExtractors = {}) {
 
     requestContext.enter(context, () => {
       trackRequest(context, res, req.method, () => req.route ? req.baseUrl + req.route.path : req.path, () => req.body,
-        { path: req.path, ip: req.ip, userAgent: req.headers['user-agent'], ...merged.metadata?.(req) });
+        { path: req.path, ip: req.ip, userAgent: req.headers['user-agent'], attributes: merged.attributes?.(req) });
       next();
     });
   };

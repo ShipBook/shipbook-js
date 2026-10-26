@@ -1,7 +1,7 @@
 import type { NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
 import type { Observable } from 'rxjs';
 import { randomUUID } from 'crypto';
-import type { User, RequestContext } from '@shipbook/core';
+import type { User, RequestContext, Attributes } from '@shipbook/core';
 import { logManager, SESSION_LINK_HEADER } from '@shipbook/core';
 import { requestContext } from '../context/request-context';
 import { trackRequest } from './request-events';
@@ -10,7 +10,7 @@ export interface NestExtractors {
   user?: (ctx: ExecutionContext) => User | undefined;
   session?: (ctx: ExecutionContext) => string | undefined;
   trace?: (ctx: ExecutionContext) => string | undefined;
-  metadata?: (ctx: ExecutionContext) => Record<string, unknown>;  // Stored on the request's start event, with its path, ip and user agent
+  attributes?: (ctx: ExecutionContext) => Attributes;  // The app's own facts about the request, stored on its start event
 }
 
 export function createNestInterceptor(extractors: NestExtractors = {}) {
@@ -46,7 +46,7 @@ export function createNestInterceptor(extractors: NestExtractors = {}) {
       return new RxObservable((subscriber: any) => {
         requestContext.enter(ctx, () => {
           trackRequest(ctx, res.raw ?? res, req.method, () => req.route?.path ?? req.routeOptions?.url ?? path, () => req.body,
-            { path, ip: req.ip, userAgent: req.headers['user-agent'], ...extractors.metadata?.(context) });
+            { path, ip: req.ip, userAgent: req.headers['user-agent'], attributes: extractors.attributes?.(context) });
           next.handle().subscribe(subscriber);
         });
       });

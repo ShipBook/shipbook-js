@@ -15,6 +15,7 @@ export type {
   RootResponse 
 } from './config-response';
 export type { RequestContext } from './request-context';
+export type { Attributes } from './attributes';
 
 export { Platform, SESSION_LINK_HEADER } from './session';
 

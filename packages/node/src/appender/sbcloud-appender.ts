@@ -111,7 +111,7 @@ export class SBCloudAppender implements BaseAppender {
     const session: Session = {
       sessionId: ctx.sessionId,
       userInfo: ctx.user,
-      metadata: ctx.metadata,
+      attributes: ctx.attributes,
       isBackground: ctx.isBackground ?? true,
       jobName: ctx.jobName,
       callerSessionLink: ctx.callerSessionLink,
