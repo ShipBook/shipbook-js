@@ -14,18 +14,21 @@ export function jsonRpcOperation(body: unknown) {
   return operations.length ? operations.join(', ') : undefined;
 }
 
-// Call inside the request's context; 'finish' fires outside it (re-entered for the end), and routing and body parsing may only be done by then.
-export function trackRequest(ctx: RequestContext, res: ServerResponse, method: string, route: () => string, body: () => unknown,
-  facts: Pick<RequestEvent, 'path' | 'ip' | 'userAgent' | 'attributes'>) {
-  const start = Object.assign(new RequestEvent(RequestEventPhase.Start, RequestKind.Http, method, route(), jsonRpcOperation(body())), facts);
+// Call inside the request's context with its start; 'finish' fires outside it (re-entered for the end), and routing and body parsing may only be done by then.
+export function trackRequest(ctx: RequestContext, res: ServerResponse, start: RequestEvent, route: () => string, body: () => unknown) {
   logManager.push(start);
   res.on('finish', () => {
-    const duration = Date.now() - ctx.startTime.getTime();
     // As for an HTTP server span: a 4xx is the client's mistake, only a 5xx failed the request.
     const outcome = res.statusCode >= 500 ? RequestOutcome.Error : RequestOutcome.Ok;
-    requestContext.enter(ctx, () => logManager.push(new RequestEvent(RequestEventPhase.End, RequestKind.Http, method, route(), jsonRpcOperation(body()),
-      ctx.startTime, start.orderId, res.statusCode, outcome, duration)));
+    requestContext.enter(ctx, () => logManager.push(endOf(start, ctx, route(), jsonRpcOperation(body()), res.statusCode, outcome)));
   });
+}
+
+// The end repeats the start's facts, with the route and operation as they are known once the request is done.
+function endOf(start: RequestEvent, ctx: RequestContext, route: string | undefined, operation: string | undefined, status: number | undefined,
+  outcome: RequestOutcome, errorCode?: number) {
+  return new RequestEvent(RequestEventPhase.End, start.kind, start.method, route, operation, start.path, start.ip, start.userAgent, start.attributes,
+    ctx.startTime, start.orderId, status, outcome, Date.now() - ctx.startTime.getTime(), errorCode);
 }
 
 // A request without HTTP (an MCP call over stdio, a queue message) inside the given session; end() writes how it finished.
@@ -37,8 +40,8 @@ export function openRequest(session: RequestContext, kind: RequestKind, operatio
     logManager.push(event);
     return event;
   });
-  const end = (outcome: RequestOutcome, errorCode?: number) => requestContext.enter(ctx, () => logManager.push(new RequestEvent(
-    RequestEventPhase.End, kind, undefined, undefined, operation, ctx.startTime, start.orderId, undefined, outcome, Date.now() - ctx.startTime.getTime(), errorCode)));
+  const end = (outcome: RequestOutcome, errorCode?: number) =>
+    requestContext.enter(ctx, () => logManager.push(endOf(start, ctx, undefined, operation, undefined, outcome, errorCode)));
   return { ctx, end };
 }
 

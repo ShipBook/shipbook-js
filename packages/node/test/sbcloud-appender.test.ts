@@ -305,7 +305,7 @@ describe('SBCloudAppender', () => {
       await requestContext.enter(ctx, async () => {
         await appender.push(start);
         await appender.push(new Message('error', Severity.Error, 'Tag'));
-        await appender.push(new RequestEvent(RequestEventPhase.End, RequestKind.Http, 'GET', '/orders', undefined, ctx.startTime, start.orderId, 500));
+        await appender.push(new RequestEvent(RequestEventPhase.End, RequestKind.Http, 'GET', '/orders', undefined, undefined, undefined, undefined, undefined, ctx.startTime, start.orderId, 500));
       });
       const quiet = { sessionId: 'quiet-request', requestId: 'req-2', startTime: new Date(), isBackground: false };
       await requestContext.enter(quiet, async () => {

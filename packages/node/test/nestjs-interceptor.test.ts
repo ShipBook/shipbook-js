@@ -84,6 +84,7 @@ describe('Nest Interceptor', () => {
     ]);
     expect(ensureSpy.mock.calls[0][0].attributes).toBeUndefined();
     expect(pushed[0]).toMatchObject({ path: '/api/orders/8812', ip: '10.0.0.1' });
+    expect(pushed[1]).toMatchObject({ event: RequestEventPhase.End, path: '/api/orders/8812', ip: '10.0.0.1' });
   });
 
   it('falls back to the extractor without the header', () => {

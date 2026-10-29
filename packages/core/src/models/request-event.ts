@@ -27,18 +27,19 @@ export default class RequestEvent extends BaseEvent {
   method?: string;
   route?: string;
   operation?: string; // what a multiplexed endpoint was asked to do, e.g. an MCP 'tools/call get-logs'
+  path?: string; // the concrete path (route is the template)
+  ip?: string;
+  userAgent?: string;
+  attributes?: Attributes; // the app's own facts about the request (the middleware's extractor)
   startTime?: Date;
   startOrderId?: number;
   status?: number;
   outcome?: RequestOutcome;
   duration?: number;
   errorCode?: number; // rpc: the JSON-RPC error code
-  path?: string; // start only: the concrete path (route is the template)
-  ip?: string; // start only
-  userAgent?: string; // start only
-  attributes?: Attributes; // start only: the app's own facts about the request (the middleware's extractor)
 
   constructor(event: RequestEventPhase, kind: RequestKind, method?: string, route?: string, operation?: string,
+    path?: string, ip?: string, userAgent?: string, attributes?: Attributes,
     startTime?: Date, startOrderId?: number, status?: number, outcome?: RequestOutcome, duration?: number, errorCode?: number) {
     super(LogType.RequestEvent);
     this.event = event;
@@ -46,6 +47,10 @@ export default class RequestEvent extends BaseEvent {
     this.method = method;
     this.route = route;
     this.operation = operation;
+    this.path = path;
+    this.ip = ip;
+    this.userAgent = userAgent;
+    this.attributes = attributes;
     this.startTime = startTime;
     this.startOrderId = startOrderId;
     this.status = status;

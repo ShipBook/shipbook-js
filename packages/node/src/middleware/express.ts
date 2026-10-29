@@ -1,9 +1,9 @@
 import type { Request, Response, NextFunction } from 'express';
 import { randomUUID } from 'crypto';
 import type { User, RequestContext, Attributes } from '@shipbook/core';
-import { logManager, SESSION_LINK_HEADER } from '@shipbook/core';
+import { logManager, SESSION_LINK_HEADER, RequestEvent, RequestEventPhase, RequestKind } from '@shipbook/core';
 import { requestContext } from '../context/request-context';
-import { trackRequest } from './request-events';
+import { trackRequest, jsonRpcOperation } from './request-events';
 
 export interface ExpressExtractors {
   user?: (req: Request) => User | undefined;
@@ -50,8 +50,9 @@ export function createExpressMiddleware(extractors: ExpressExtractors = {}) {
     logManager.startRequest(context);
 
     requestContext.enter(context, () => {
-      trackRequest(context, res, req.method, () => req.route ? req.baseUrl + req.route.path : req.path, () => req.body,
-        { path: req.path, ip: req.ip, userAgent: req.headers['user-agent'], attributes: merged.attributes?.(req) });
+      const route = () => req.route ? req.baseUrl + req.route.path : req.path;
+      trackRequest(context, res, new RequestEvent(RequestEventPhase.Start, RequestKind.Http, req.method, route(), jsonRpcOperation(req.body),
+        req.path, req.ip, req.headers['user-agent'], merged.attributes?.(req)), route, () => req.body);
       next();
     });
   };

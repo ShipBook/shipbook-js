@@ -51,7 +51,7 @@ describe('Express Middleware', () => {
       });
     });
 
-    it('puts the request\'s path, ip and user agent on its start event, not on the session', (done) => {
+    it('puts the request\'s path, ip and user agent on its events, not on the session', (done) => {
       const pushed: RequestEvent[] = [];
       const pushSpy = jest.spyOn(logManager, 'push').mockImplementation((log) => { pushed.push(log as RequestEvent); });
       const middleware = createExpressMiddleware();
