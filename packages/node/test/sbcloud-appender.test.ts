@@ -43,14 +43,14 @@ describe('SBCloudAppender', () => {
       );
     });
 
-    it('should set isBackground: true and metadata type "background"', async () => {
+    it('should set isBackground: true without attributes', async () => {
       await appender.push(new Message('bg log', Severity.Info, 'Tag'));
       appender.flush();
       await tick();
 
       const session = (requestSpy.mock.calls[0][1] as { sessions: any[] }).sessions[0];
       expect(session.isBackground).toBe(true);
-      expect(session.metadata).toEqual({ type: 'background' });
+      expect(session.attributes).toBeUndefined();
     });
 
     it('keeps the cloud queue in memory, nothing on disk', async () => {
@@ -305,7 +305,7 @@ describe('SBCloudAppender', () => {
       await requestContext.enter(ctx, async () => {
         await appender.push(start);
         await appender.push(new Message('error', Severity.Error, 'Tag'));
-        await appender.push(new RequestEvent(RequestEventPhase.End, RequestKind.Http, 'GET', '/orders', undefined, ctx.startTime, start.orderId, 500));
+        await appender.push(new RequestEvent(RequestEventPhase.End, RequestKind.Http, 'GET', '/orders', undefined, undefined, undefined, undefined, undefined, ctx.startTime, start.orderId, 500));
       });
       const quiet = { sessionId: 'quiet-request', requestId: 'req-2', startTime: new Date(), isBackground: false };
       await requestContext.enter(quiet, async () => {
@@ -341,7 +341,7 @@ describe('SBCloudAppender', () => {
         sessionId: 'stub-session',
         startTime: new Date(),
         isBackground: false,
-        metadata: { method: 'GET', path: '/health' }
+        attributes: { tenant: 'acme' }
       });
       appender.flush();
       await tick();
@@ -351,7 +351,7 @@ describe('SBCloudAppender', () => {
       expect(sessions[0].sessionId).toBe('stub-session');
       expect(sessions[0].logs).toEqual([]);
       expect(sessions[0].isBackground).toBe(false);
-      expect(sessions[0].metadata).toMatchObject({ method: 'GET', path: '/health' });
+      expect(sessions[0].attributes).toEqual({ tenant: 'acme' });
     });
 
     it('is a no-op when a batch already exists for the sessionId (preserves existing logs)', async () => {

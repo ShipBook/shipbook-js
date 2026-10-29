@@ -26,8 +26,7 @@ export function instrumentMcpTransport<T extends McpTransport>(transport: T): T 
   const session: RequestContext = {
     sessionId: transport.sessionId ?? randomUUID(),
     startTime: new Date(),
-    isBackground: false,
-    metadata: { transport: transport.constructor.name }
+    isBackground: false
   };
   const pending = new Map<JsonRpcId, (outcome: RequestOutcome, errorCode?: number) => void>();
 
