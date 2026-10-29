@@ -51,8 +51,9 @@ export function createExpressMiddleware(extractors: ExpressExtractors = {}) {
 
     requestContext.enter(context, () => {
       const route = () => req.route ? req.baseUrl + req.route.path : req.path;
-      trackRequest(context, res, new RequestEvent(RequestEventPhase.Start, RequestKind.Http, req.method, route(), jsonRpcOperation(req.body),
-        req.path, req.ip, req.headers['user-agent'], merged.attributes?.(req)), route, () => req.body);
+      const start = new RequestEvent(RequestEventPhase.Start, RequestKind.Http, req.method, route(), jsonRpcOperation(req.body),
+        req.path, req.ip, req.headers['user-agent'], merged.attributes?.(req));
+      trackRequest(context, res, start, route, () => req.body);
       next();
     });
   };

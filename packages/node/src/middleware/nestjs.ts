@@ -46,8 +46,9 @@ export function createNestInterceptor(extractors: NestExtractors = {}) {
       return new RxObservable((subscriber: any) => {
         requestContext.enter(ctx, () => {
           const route = () => req.route?.path ?? req.routeOptions?.url ?? path;
-          trackRequest(ctx, res.raw ?? res, new RequestEvent(RequestEventPhase.Start, RequestKind.Http, req.method, route(), jsonRpcOperation(req.body),
-            path, req.ip, req.headers['user-agent'], extractors.attributes?.(context)), route, () => req.body);
+          const start = new RequestEvent(RequestEventPhase.Start, RequestKind.Http, req.method, route(), jsonRpcOperation(req.body),
+            path, req.ip, req.headers['user-agent'], extractors.attributes?.(context));
+          trackRequest(ctx, res.raw ?? res, start, route, () => req.body);
           next.handle().subscribe(subscriber);
         });
       });
