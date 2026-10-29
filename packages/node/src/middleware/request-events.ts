@@ -20,12 +20,12 @@ export function trackRequest(ctx: RequestContext, res: ServerResponse, start: Re
   res.on('finish', () => {
     // As for an HTTP server span: a 4xx is the client's mistake, only a 5xx failed the request.
     const outcome = res.statusCode >= 500 ? RequestOutcome.Error : RequestOutcome.Ok;
-    requestContext.enter(ctx, () => logManager.push(endOf(start, ctx, route(), jsonRpcOperation(body()), res.statusCode, outcome)));
+    requestContext.enter(ctx, () => logManager.push(endRequestEvent(start, ctx, route(), jsonRpcOperation(body()), res.statusCode, outcome)));
   });
 }
 
 // The end repeats the start's facts, with the route and operation as they are known once the request is done.
-function endOf(start: RequestEvent, ctx: RequestContext, route: string | undefined, operation: string | undefined, status: number | undefined,
+function endRequestEvent(start: RequestEvent, ctx: RequestContext, route: string | undefined, operation: string | undefined, status: number | undefined,
   outcome: RequestOutcome, errorCode?: number) {
   return new RequestEvent(RequestEventPhase.End, start.kind, start.method, route, operation, start.path, start.ip, start.userAgent, start.attributes,
     ctx.startTime, start.orderId, status, outcome, Date.now() - ctx.startTime.getTime(), errorCode);
@@ -41,7 +41,7 @@ export function openRequest(session: RequestContext, kind: RequestKind, operatio
     return event;
   });
   const end = (outcome: RequestOutcome, errorCode?: number) =>
-    requestContext.enter(ctx, () => logManager.push(endOf(start, ctx, undefined, operation, undefined, outcome, errorCode)));
+    requestContext.enter(ctx, () => logManager.push(endRequestEvent(start, ctx, undefined, operation, undefined, outcome, errorCode)));
   return { ctx, end };
 }
 
