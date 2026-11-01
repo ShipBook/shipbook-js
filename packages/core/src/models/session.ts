@@ -1,3 +1,4 @@
+import type { Attributes } from './attributes';
 import type User from './user';
 import type BaseLog from './base-log';
 
@@ -103,7 +104,7 @@ export interface CellInfo {
 export interface Session {
   sessionId?: string;
   platform: Platform;
-  metadata?: Record<string, unknown>;
+  attributes?: Attributes; // the app's own facts about a job's session
   isBackground?: boolean;
   jobName?: string;
   callerSessionLink?: string; // Raw x-shipbook-session header from the incoming request; the server parses it

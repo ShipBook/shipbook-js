@@ -1,15 +1,15 @@
 import type { Request, Response, NextFunction } from 'express';
 import { randomUUID } from 'crypto';
-import type { User, RequestContext } from '@shipbook/core';
-import { logManager, SESSION_LINK_HEADER } from '@shipbook/core';
+import type { User, RequestContext, Attributes } from '@shipbook/core';
+import { logManager, SESSION_LINK_HEADER, RequestEvent, RequestEventPhase, RequestKind } from '@shipbook/core';
 import { requestContext } from '../context/request-context';
-import { trackRequest } from './request-events';
+import { trackRequest, jsonRpcOperation } from './request-events';
 
 export interface ExpressExtractors {
   user?: (req: Request) => User | undefined;
   session?: (req: Request) => string | undefined;
   trace?: (req: Request) => string | undefined;
-  metadata?: (req: Request) => Record<string, unknown>;
+  attributes?: (req: Request) => Attributes;  // The app's own facts about the request, stored on its start event
 }
 
 const defaultExtractors: ExpressExtractors = {
@@ -43,13 +43,6 @@ export function createExpressMiddleware(extractors: ExpressExtractors = {}) {
       requestId: randomUUID(),
       callerSessionLink,
       user: merged.user?.(req),
-      metadata: {
-        method: req.method,
-        path: req.path,
-        ip: req.ip,
-        userAgent: req.headers['user-agent'],
-        ...merged.metadata?.(req)
-      },
       startTime: new Date(),
       isBackground: false
     };
@@ -57,7 +50,10 @@ export function createExpressMiddleware(extractors: ExpressExtractors = {}) {
     logManager.startRequest(context);
 
     requestContext.enter(context, () => {
-      trackRequest(context, res, req.method, () => req.route ? req.baseUrl + req.route.path : req.path, () => req.body);
+      const route = () => req.route ? req.baseUrl + req.route.path : req.path;
+      const start = new RequestEvent(RequestEventPhase.Start, RequestKind.Http, req.method, route(), jsonRpcOperation(req.body),
+        req.path, req.ip, req.headers['user-agent'], merged.attributes?.(req));
+      trackRequest(context, res, start, route, () => req.body);
       next();
     });
   };

@@ -39,6 +39,7 @@ export type {
   LoggerResponse,
   RootResponse,
   RequestContext,
+  Attributes,
   Session,
   Browser,
   DeviceInfo,

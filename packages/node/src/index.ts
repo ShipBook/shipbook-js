@@ -8,6 +8,7 @@ import { createNestInterceptor } from './middleware/nestjs';
 import { SBCloudAppender } from './appender/sbcloud-appender';
 import { authManager } from './auth/auth-manager';
 import { requestContext } from './context/request-context';
+import type { JobContextOptions } from './context/request-context';
 import { runInRequest } from './middleware/request-events';
 import { instrumentMcpTransport } from './mcp/mcp-transport';
 
@@ -154,7 +155,7 @@ class ShipbookNode {
   nestjsInterceptor = createNestInterceptor;
 
   // A background job's run: its own session, and one request of kind Job in it, so it counts and ends like a request
-  runInContext<T>(options: { jobName: string; metadata?: Record<string, unknown> }, fn: () => T | Promise<T>): Promise<T> {
+  runInContext<T>(options: JobContextOptions, fn: () => T | Promise<T>): Promise<T> {
     return requestContext.runJob(options, () => runInRequest(RequestKind.Job, options.jobName, fn));
   }
 

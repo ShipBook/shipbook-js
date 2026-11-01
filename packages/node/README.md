@@ -145,9 +145,9 @@ await Shipbook.runInContext({ jobName: 'email-queue' }, async () => {
   log.info('Email queue completed', { processed: 100 });
 });
 
-// Data cleanup job with custom metadata
+// Data cleanup job with its own attributes
 await Shipbook.runInContext(
-  { jobName: 'data-cleanup', metadata: { priority: 'low' } },
+  { jobName: 'data-cleanup', attributes: { priority: 'low' } },
   async () => {
     const log = Shipbook.getLogger('DataCleanup');
 
@@ -158,7 +158,7 @@ await Shipbook.runInContext(
 );
 ```
 
-Each `runInContext` call creates a unique session, with the job name stored in the session metadata for filtering in the Shipbook console.
+Each `runInContext` call creates a unique session; the job name and the attributes are shown in the Shipbook console.
 
 ## Storage Location
 
