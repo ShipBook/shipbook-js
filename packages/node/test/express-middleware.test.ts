@@ -2,6 +2,7 @@ import { createExpressMiddleware, ExpressExtractors } from '../src/middleware/ex
 import { requestContext } from '../src/context/request-context';
 import { logManager, RequestEvent, RequestEventPhase, RequestKind, RequestOutcome } from '@shipbook/core';
 import type { Request, Response, NextFunction } from 'express';
+import type { Attributes } from '../src';
 
 // Mock request factory
 const createMockRequest = (overrides: Partial<Request> = {}): Request => ({
@@ -242,12 +243,8 @@ describe('Express Middleware', () => {
     it('puts the attributes extractor\'s fields on the start event', (done) => {
       const pushed: RequestEvent[] = [];
       const pushSpy = jest.spyOn(logManager, 'push').mockImplementation((log) => { pushed.push(log as RequestEvent); });
-      const middleware = createExpressMiddleware({
-        attributes: (req) => ({
-          customField: 'custom-value',
-          requestSize: 1234
-        })
-      });
+      const attributes: Attributes = { customField: 'custom-value', requestSize: 1234 };
+      const middleware = createExpressMiddleware({ attributes: () => attributes });
 
       const req = createMockRequest();
       const res = createMockResponse();

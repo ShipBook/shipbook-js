@@ -199,5 +199,6 @@ export {
   type IEventManager,
   type IExceptionHandler,
   type PlatformAdapters,
-  type RequestContext
+  type RequestContext,
+  type Attributes
 } from '@shipbook/core';
