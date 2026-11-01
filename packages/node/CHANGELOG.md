@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.7.0
+### Added
+- Every HTTP request records its path, the caller's IP and user agent on its start and end events. The Logbook shows them in the request's header.
+- `attributes` extractor on `expressMiddleware()` and `nestjsInterceptor()`: your own facts about the request (string, number or boolean values), stored with it. Nest's extractor receives the `ExecutionContext`.
+
+### Changed
+- `runInContext({ jobName, metadata })` is now `runInContext({ jobName, attributes })`, with primitive values only.
+- The Express `metadata` extractor option is now `attributes`. It no longer needs to repeat the method, path and IP: the SDK records those itself.
+- A background job's session no longer carries `type: 'background'`, and an MCP transport's session no longer records the transport class name.
+- Requires `@shipbook/core` 2.5.0.
+
 ## 1.6.0
 ### Added
 - **Crash capture.** An uncaught exception or unhandled rejection is recorded and sent before the process exits. On `SIGTERM` or `SIGINT` (every deploy, Ctrl+C) pending logs are sent first, then the process ends as it would have. If your app has its own handler for one of these, the SDK only sends and leaves the exit to you.

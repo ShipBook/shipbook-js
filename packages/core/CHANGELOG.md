@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.5.0
+### Added
+- `Attributes`: an app's own key/values, `Record<string, string | number | boolean>`, so they list and index flat.
+- `RequestEvent.path`, `ip`, `userAgent` and `attributes`: the request's concrete path (`route` stays the template), the caller's IP and user agent, and the app's own facts. The start and the end event both carry them.
+- `Session.attributes` and `RequestContext.attributes`: the app's own facts about a job's session.
+
+### Changed
+- `RequestEvent`'s constructor takes `path`, `ip`, `userAgent` and `attributes` after `operation`, before `startTime`.
+
+### Removed
+- `RequestContext.metadata` and `Session.metadata`, open `Record<string, unknown>` bags. Use `attributes`.
+
 ## 2.4.0
 ### Added
 - `Session.requests`: how many requests a server SDK started in the session during one upload. The server adds it up instead of counting one per session.
