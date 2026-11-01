@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.1
+### Fixed
+- The `Attributes` type is exported from `@shipbook/node`, so an `attributes` extractor can be typed without importing `@shipbook/core`.
+
 ## 1.7.0
 ### Added
 - Every HTTP request records its path, the caller's IP and user agent on its start and end events. The Logbook shows them in the request's header.

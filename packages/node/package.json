@@ -1,6 +1,6 @@
 {
   "name": "@shipbook/node",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "Shipbook SDK for Node.js - Remote logging and error tracking for servers and serverless",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
