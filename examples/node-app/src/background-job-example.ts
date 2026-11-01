@@ -45,7 +45,7 @@ async function processEmailQueue() {
 // Simulated data cleanup job
 async function runDataCleanup() {
   await Shipbook.runInContext(
-    { jobName: 'data-cleanup', metadata: { priority: 'low' } },
+    { jobName: 'data-cleanup', attributes: { priority: 'low' } },
     async () => {
       const cleanupLog = Shipbook.getLogger('DataCleanup');
 
