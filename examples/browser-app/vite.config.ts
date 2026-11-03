@@ -12,7 +12,17 @@ export default defineConfig({
       '@shipbook/core': path.resolve(__dirname, '../../packages/core/src/index.ts'),
     },
   },
+  server: {
+    // the shop demo calls the node-app's shop-example backend; same origin, so no CORS setup for x-shipbook-session
+    proxy: { '/api': 'http://localhost:3001' },
+  },
   build: {
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        shop: path.resolve(__dirname, 'shop.html'),
+      },
+    },
     commonjsOptions: {
       include: [/node_modules\//],
       transformMixedEsModules: true,
