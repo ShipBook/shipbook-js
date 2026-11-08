@@ -20,23 +20,23 @@ await Shipbook.start('YOUR_APP_ID', 'YOUR_APP_KEY');
 const log = Shipbook.getLogger('MyComponent');
 
 // Log messages at different severity levels
-log.verbose('Detailed trace information');
-log.debug('Debug information');
-log.info('General information');
-log.warning('Warning message');
-log.error('Error message');
+log.v('Detailed trace information');
+log.d('Debug information');
+log.i('General information');
+log.w('Warning message');
+log.e('Error message');
 
 // Log with additional parameters (like console.log)
-log.debug('User data:', { id: 123, name: 'John' });
-log.info('Items:', ['apple', 'banana']);
-log.debug('Count:', 42, 'Status:', { active: true });
+log.d('User data:', { id: 123, name: 'John' });
+log.i('Items:', ['apple', 'banana']);
+log.d('Count:', 42, 'Status:', { active: true });
 
 // Log with an error object (must be last argument)
 try {
   throw new Error('Something failed');
 } catch (error) {
-  log.error('Operation failed', error);
-  log.error('Failed with context:', { userId: 'user123' }, error);
+  log.e('Operation failed', error);
+  log.e('Failed with context:', { userId: 'user123' }, error);
 }
 ```
 
@@ -62,10 +62,10 @@ Shipbook.enableInnerLog(true);
 ```typescript
 Shipbook.registerUser(
   'user-123',           // userId
+  'johndoe',            // userName (optional)
+  'John Doe',           // fullName (optional)
   'john@example.com',   // email (optional)
-  'John Doe',           // userName (optional)
-  'John',               // firstName (optional)
-  'Doe',                // lastName (optional)
+  '+1234567890',        // phoneNumber (optional)
   { role: 'admin' }     // additionalInfo (optional)
 );
 ```
@@ -94,7 +94,7 @@ function App() {
     initialized.current = true;
 
     Shipbook.start('YOUR_APP_ID', 'YOUR_APP_KEY')
-      .then(() => log.info('App started'));
+      .then(() => log.i('App started'));
   }, []);
 
   return <div>Your App</div>;

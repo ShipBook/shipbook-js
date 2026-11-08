@@ -20,23 +20,23 @@ await Shipbook.start('YOUR_APP_ID', 'YOUR_APP_KEY');
 const log = Shipbook.getLogger('MyService');
 
 // Log messages at different severity levels
-log.verbose('Detailed trace information');
-log.debug('Debug information');
-log.info('General information');
-log.warning('Warning message');
-log.error('Error message');
+log.v('Detailed trace information');
+log.d('Debug information');
+log.i('General information');
+log.w('Warning message');
+log.e('Error message');
 
 // Log with additional parameters (like console.log)
-log.debug('Request data:', { method: 'POST', path: '/api' });
-log.info('Processing items:', ['item1', 'item2']);
-log.debug('User:', userId, 'Action:', action);
+log.d('Request data:', { method: 'POST', path: '/api' });
+log.i('Processing items:', ['item1', 'item2']);
+log.d('User:', userId, 'Action:', action);
 
 // Log with an error object (must be last argument)
 try {
   await someOperation();
 } catch (error) {
-  log.error('Operation failed', error);
-  log.error('Failed with context:', { requestId }, error);
+  log.e('Operation failed', error);
+  log.e('Failed with context:', { requestId }, error);
 }
 ```
 
@@ -57,18 +57,27 @@ try {
 Shipbook.enableInnerLog(true);
 ```
 
-### Register User/Request Context
+### Associate Logs with a User
+
+A server handles many users at once, so the user is set per request, not globally. If your auth middleware sets `req.user` (Passport and most others do), the Express middleware and the NestJS interceptor pick it up automatically: `id` or `userId`, `name` or `userName`, and `email`.
+
+For any other shape, pass a `user` extractor:
 
 ```typescript
-Shipbook.registerUser(
-  'user-123',           // userId
-  'john@example.com',   // email (optional)
-  'John Doe',           // userName (optional)
-  'John',               // firstName (optional)
-  'Doe',                // lastName (optional)
-  { role: 'admin' }     // additionalInfo (optional)
-);
+app.use(Shipbook.expressMiddleware({
+  user: (req) => req.account && { userId: req.account.id, email: req.account.email }
+}));
+
+// NestJS
+app.useGlobalInterceptors(Shipbook.nestjsInterceptor({
+  user: (ctx) => {
+    const account = ctx.switchToHttp().getRequest().account;
+    return account && { userId: account.id, email: account.email };
+  }
+}));
 ```
+
+The only required field is `userId`; `userName`, `fullName`, `email`, `phoneNumber` and `additionalInfo` are optional.
 
 ## Framework Integration
 
@@ -79,17 +88,18 @@ import express from 'express';
 import Shipbook from '@shipbook/node';
 
 const app = express();
+app.use(Shipbook.expressMiddleware()); // groups each request's logs, with its user
 const log = Shipbook.getLogger('ExpressApp');
 
 // Initialize before starting server
 Shipbook.start('YOUR_APP_ID', 'YOUR_APP_KEY').then(() => {
   app.listen(3000, () => {
-    log.info('Server started on port 3000');
+    log.i('Server started on port 3000');
   });
 });
 
 app.get('/', (req, res) => {
-  log.info('Request received', { path: req.path });
+  log.i('Request received', { path: req.path });
   res.send('Hello World');
 });
 ```
@@ -122,7 +132,7 @@ const initPromise = Shipbook.start('YOUR_APP_ID', 'YOUR_APP_KEY');
 export const handler = async (event: any) => {
   await initPromise;
   
-  log.info('Lambda invoked', { event });
+  log.i('Lambda invoked', { event });
   
   // Your handler logic
   return { statusCode: 200, body: 'Success' };
@@ -140,9 +150,9 @@ import Shipbook from '@shipbook/node';
 await Shipbook.runInContext({ jobName: 'email-queue' }, async () => {
   const log = Shipbook.getLogger('EmailProcessor');
 
-  log.info('Processing email queue');
+  log.i('Processing email queue');
   // ... process emails ...
-  log.info('Email queue completed', { processed: 100 });
+  log.i('Email queue completed', { processed: 100 });
 });
 
 // Data cleanup job with its own attributes
@@ -151,9 +161,9 @@ await Shipbook.runInContext(
   async () => {
     const log = Shipbook.getLogger('DataCleanup');
 
-    log.info('Starting cleanup');
+    log.i('Starting cleanup');
     // ... cleanup logic ...
-    log.info('Cleanup completed');
+    log.i('Cleanup completed');
   }
 );
 ```
