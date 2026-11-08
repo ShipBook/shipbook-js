@@ -57,9 +57,9 @@ try {
 Shipbook.enableInnerLog(true);
 ```
 
-### Associate Logs with a User
+### Register User
 
-A server handles many users at once, so the user is set per request, not globally. If your auth middleware sets `req.user` (Passport and most others do), the Express middleware and the NestJS interceptor pick it up automatically: `id` or `userId`, `name` or `userName`, and `email`.
+Unlike the mobile and browser SDKs, Node has no global `registerUser` call: a server handles many users at once, so the user is attached to each request. If your auth middleware sets `req.user` (Passport and most others do), the Express middleware and the NestJS interceptor pick it up automatically: `id` or `userId`, `name` or `userName`, and `email`.
 
 For any other shape, pass a `user` extractor:
 
