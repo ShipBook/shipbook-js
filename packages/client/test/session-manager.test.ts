@@ -162,6 +162,15 @@ describe('SDK control plane', () => {
       }
     });
 
+    test('a request before start carries the SDK header and no app id', async () => {
+      sessionManager.appId = undefined;
+
+      await connectionClient.request('auth/loginSdk', {}, HttpMethod.POST);
+
+      expect(headersOf(0).get(SDK_HEADER)).toBe('browser/1.2.3');
+      expect(headersOf(0).has(APP_ID_HEADER)).toBe(false);
+    });
+
     test('an adapter without a platform version reports the client version', async () => {
       Shipbook.init({ storage, platform, eventManager, exceptionHandler });
 
@@ -445,6 +454,33 @@ describe('SDK control plane', () => {
 
       expect(requestedPaths()).toEqual(['auth/loginSdk', 'auth/loginSdk', 'auth/loginSdk', 'sessions/uploadSavedData']);
       expect(sessionManager.token).toBe('token');
+    });
+  });
+
+  describe('a login that was rejected', () => {
+    test.each([
+      ['a busy 429', 429, {}, 'backing off until 2026-11-09T12:05:00Z: the server answered 429'],
+      ['a refused 401', 401, { [PAUSE_HEADER]: '120' }, 'paused until 2026-11-09T12:02:00Z: the server answered 401 with x-shipbook-pause 120']
+    ])('by %s reports the signal and does not blame the app key', async (_name, status, headers, warning) => {
+      const warn = jest.spyOn(InnerLog, 'w');
+      const error = jest.spyOn(InnerLog, 'e');
+      fetchSpy.mockImplementation(async () => rejected(status, headers));
+
+      await Shipbook.start('app1', 'key1');
+
+      expect(warn.mock.calls).toEqual([[warning]]);
+      expect(error).not.toHaveBeenCalledWith(expect.stringContaining('check appId/appKey'));
+    });
+
+    test('by a 401 with neither signal still says to check the app id and key', async () => {
+      const warn = jest.spyOn(InnerLog, 'w');
+      const error = jest.spyOn(InnerLog, 'e');
+      fetchSpy.mockImplementation(async () => rejected(401, { 'Retry-After': '120' }));
+
+      await Shipbook.start('app1', 'key1');
+
+      expect(warn).not.toHaveBeenCalled();
+      expect(error).toHaveBeenCalledWith(expect.stringContaining('loginSdk rejected with 401 — check appId/appKey. Will not retry.'));
     });
   });
 

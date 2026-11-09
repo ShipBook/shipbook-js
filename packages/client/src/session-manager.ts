@@ -130,7 +130,11 @@ class SessionManager {
       getToken: () => this.token,
       refreshToken: () => this.refreshToken(),
       controlPlane: {
-        getHeaders: () => ({ [APP_ID_HEADER]: this.appId!, [SDK_HEADER]: sdkHeader }),
+        getHeaders: () => {
+          const headers: Record<string, string> = { [SDK_HEADER]: sdkHeader };
+          if (this.appId) headers[APP_ID_HEADER] = this.appId;
+          return headers;
+        },
         isBlocked: () => this.isBlocked(),
         onResponse: resp => this.readSignals(resp)
       }
@@ -227,7 +231,7 @@ class SessionManager {
 
         return json.sessionUrl;
       }
-      else if (resp.status >= 400 && resp.status < 500) {
+      else if (resp.status >= 400 && resp.status < 500 && !this.isBlocked()) {
         // 4xx on loginSdk = integration error (bad appId/appKey, app deleted). Retrying won't help — caller must fix the integration.
         const text = await resp.text();
         InnerLog.e(`loginSdk rejected with ${resp.status} — check appId/appKey. Will not retry. body: ${text}`);
