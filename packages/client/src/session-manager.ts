@@ -12,7 +12,8 @@ import {
   CORE_VERSION,
   SESSION_LINK_HEADER,
   APP_ID_HEADER,
-  SDK_HEADER
+  SDK_HEADER,
+  PAUSE_HEADER
 } from '@shipbook/core';
 import type {
   User,
@@ -58,8 +59,9 @@ const defaultConfig: ConfigResponse = {
 };
 
 const PAUSE_KEY = 'pause';
-const DEFAULT_PAUSE_SECONDS = 60 * 60;
 const MAX_PAUSE_SECONDS = 30 * 24 * 60 * 60;
+const DEFAULT_BACK_OFF_SECONDS = 5 * 60;
+const MAX_BACK_OFF_SECONDS = 60 * 60;
 
 interface Pause {
   appId: string;
@@ -79,6 +81,8 @@ class SessionManager {
   private configured = false;
   private sdkVersion!: string;
   private pause?: Pause;
+  private backOffUntil = 0;
+  private loginDue = false;
 
   // Platform adapters
   private storage!: IStorage;
@@ -116,6 +120,10 @@ class SessionManager {
     const parts = [`core:${CORE_VERSION}`, `client:${CLIENT_VERSION}`];
     if (options.platformVersion) parts.push(`${this.platform.platformName}:${options.platformVersion}`);
     this.sdkVersion = parts.join('/');
+    // Start over, as a restart would.
+    this.pause = undefined;
+    this.backOffUntil = 0;
+    this.loginDue = false;
 
     const sdkHeader = `${this.platform.platformName}/${options.platformVersion ?? CLIENT_VERSION}`;
     connectionClient.setDeps({
@@ -123,8 +131,8 @@ class SessionManager {
       refreshToken: () => this.refreshToken(),
       controlPlane: {
         getHeaders: () => ({ [APP_ID_HEADER]: this.appId!, [SDK_HEADER]: sdkHeader }),
-        isPaused: () => this.isPaused(),
-        onResponse: resp => this.readPauseSignal(resp)
+        isBlocked: () => this.isBlocked(),
+        onResponse: resp => this.readSignals(resp)
       }
     });
 
@@ -136,6 +144,7 @@ class SessionManager {
       getLoginObj: () => this.loginObj,
       getUser: () => this.user,
       isPaused: () => this.dropsLogs(),
+      isBlocked: () => this.isBlocked(),
       sendRequest: (url, body, method) =>
         connectionClient.request(url, body, method as HttpMethod)
     });
@@ -164,10 +173,13 @@ class SessionManager {
       InnerLog.w('stored pause is corrupt, deleting it', e);
       await this.storage.removeItem(PAUSE_KEY);
     }
-    const paused = pause?.appId === appId && pause.sdkVersion === this.sdkVersion && pause.until > Date.now();
+    const now = Date.now();
+    // A record further ahead than the longest pause was saved while the device clock was wrong.
+    const paused = pause?.appId === appId && pause.sdkVersion === this.sdkVersion
+      && pause.until > now && pause.until <= now + MAX_PAUSE_SECONDS * 1000;
     this.pause = paused ? pause : undefined;
     if (this.pause) {
-      InnerLog.w(`Shipbook is paused until ${new Date(this.pause.until).toISOString()} (from an earlier run); nothing will be sent`);
+      InnerLog.w(`paused until ${this.isoTime(this.pause.until)} (from an earlier run); nothing will be sent`);
     }
     if (pause && !paused) await this.storage.removeItem(PAUSE_KEY);
 
@@ -185,10 +197,14 @@ class SessionManager {
   }
 
   async innerLogin(): Promise<string | undefined> {
-    if (this.isInLoginRequest || !this.loginObj || this.isPaused()) return;
+    if (this.isInLoginRequest || !this.loginObj) return;
+    if (this.isBlocked()) {
+      this.loginDue = true;
+      return;
+    }
 
     this.isInLoginRequest = true;
-    this.pause = undefined;
+    this.loginDue = false;
     this.token = undefined;
     this.sessionLink = undefined;
 
@@ -236,27 +252,50 @@ class SessionManager {
     return !!this.pause && Date.now() < this.pause.until;
   }
 
-  // The cloud appender's first log or user change after a pause ends logs in again: nothing else retries a login.
+  private isBlocked(): boolean {
+    return this.isPaused() || Date.now() < this.backOffUntil;
+  }
+
+  // The first log or user change after a pause or a back-off ends runs the login that is due: nothing else retries one.
   private dropsLogs(): boolean {
     if (this.isPaused()) return true;
-    if (this.pause) this.innerLogin();
+    if (this.loginDue) this.innerLogin();
     return false;
   }
 
-  private readPauseSignal(resp: Response): void {
+  private readSignals(resp: Response): void {
     if (resp.status < 400) return;
 
-    const retryAfter = resp.headers.get('Retry-After') ?? '';
-    const usable = /^\d+$/.test(retryAfter) && Number(retryAfter) > 0;
-    if (!usable && resp.status !== 429) return;
+    const pauseSeconds = this.headerSeconds(resp, PAUSE_HEADER);
+    if (pauseSeconds) {
+      this.pause = {
+        appId: this.appId!,
+        sdkVersion: this.sdkVersion,
+        until: Date.now() + Math.min(pauseSeconds, MAX_PAUSE_SECONDS) * 1000
+      };
+      this.token = undefined;
+      this.sessionLink = undefined;
+      this.loginDue = true;
+      this.storage.setObj(PAUSE_KEY, this.pause);
+      InnerLog.w(`paused until ${this.isoTime(this.pause.until)}: the server answered ${resp.status} with ${PAUSE_HEADER} ${pauseSeconds}`);
+      return;
+    }
+    if (resp.status !== 429 && resp.status !== 503) return;
 
-    const seconds = usable ? Math.min(Number(retryAfter), MAX_PAUSE_SECONDS) : DEFAULT_PAUSE_SECONDS;
-    this.pause = { appId: this.appId!, sdkVersion: this.sdkVersion, until: Date.now() + seconds * 1000 };
-    this.token = undefined;
-    this.sessionLink = undefined;
-    this.storage.setObj(PAUSE_KEY, this.pause);
-    const answer = usable ? `with Retry-After ${retryAfter}` : 'without Retry-After';
-    InnerLog.w(`Shipbook paused until ${new Date(this.pause.until).toISOString()}: the server answered ${resp.status} ${answer}`);
+    const retryAfter = this.headerSeconds(resp, 'Retry-After');
+    const seconds = retryAfter ? Math.min(retryAfter, MAX_BACK_OFF_SECONDS) : DEFAULT_BACK_OFF_SECONDS;
+    this.backOffUntil = Date.now() + seconds * 1000;
+    if (!this.token) this.loginDue = true;
+    InnerLog.w(`backing off until ${this.isoTime(this.backOffUntil)}: the server answered ${resp.status}`);
+  }
+
+  private headerSeconds(resp: Response, name: string): number {
+    const value = resp.headers.get(name) ?? '';
+    return /^\d+$/.test(value) ? Number(value) : 0;
+  }
+
+  private isoTime(time: number): string {
+    return new Date(time).toISOString().replace(/\.\d+Z$/, 'Z');
   }
 
   private readConfig(config: ConfigResponse): void {

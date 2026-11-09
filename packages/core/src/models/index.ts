@@ -17,7 +17,7 @@ export type {
 export type { RequestContext } from './request-context';
 export type { Attributes } from './attributes';
 
-export { Platform, SESSION_LINK_HEADER, APP_ID_HEADER, SDK_HEADER } from './session';
+export { Platform, SESSION_LINK_HEADER, APP_ID_HEADER, SDK_HEADER, PAUSE_HEADER } from './session';
 
 export type {
   Session,

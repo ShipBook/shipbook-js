@@ -31,7 +31,8 @@ export {
   Platform,
   SESSION_LINK_HEADER,
   APP_ID_HEADER,
-  SDK_HEADER
+  SDK_HEADER,
+  PAUSE_HEADER
 } from './models';
 
 export type {

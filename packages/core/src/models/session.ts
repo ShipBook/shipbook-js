@@ -129,3 +129,6 @@ export const SESSION_LINK_HEADER = 'x-shipbook-session';
 export const APP_ID_HEADER = 'x-shipbook-app-id';
 export const SDK_HEADER = 'x-shipbook-sdk';
 
+// Only the Shipbook server sends it, on a refusal: the client SDK stops and drops logs for that many seconds.
+export const PAUSE_HEADER = 'x-shipbook-pause';
+

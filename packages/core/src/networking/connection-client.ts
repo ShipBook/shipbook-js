@@ -5,10 +5,10 @@ export enum HttpMethod {
   PUT = 'PUT'
 }
 
-// Client SDKs only: identifies the caller in headers and lets the server pause the SDK.
+// Client SDKs only: identifies the caller in headers and lets the server stop the SDK's requests for a while.
 interface ControlPlane {
   getHeaders: () => Record<string, string>;
-  isPaused: () => boolean;
+  isBlocked: () => boolean;
   onResponse: (resp: Response) => void;
 }
 
@@ -34,7 +34,7 @@ class ConnectionClient {
   }
 
   async request(url: string, body?: object, method?: HttpMethod): Promise<Response> {
-    if (this.controlPlane?.isPaused()) return new Response(null, { status: 429 });
+    if (this.controlPlane?.isBlocked()) return new Response(null, { status: 429 });
 
     const headers: Headers = new Headers({
       'Content-Type': 'application/json',
