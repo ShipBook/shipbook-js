@@ -125,3 +125,7 @@ export interface Session {
 // Cross-app session link: client SDKs forward the server-minted value; backend SDKs pass it back raw.
 export const SESSION_LINK_HEADER = 'x-shipbook-session';
 
+// Sent by the client SDKs on every request, so the caller is known without parsing the body.
+export const APP_ID_HEADER = 'x-shipbook-app-id';
+export const SDK_HEADER = 'x-shipbook-sdk';
+

@@ -10,7 +10,9 @@ import {
   Exception,
   AppEvent,
   CORE_VERSION,
-  SESSION_LINK_HEADER
+  SESSION_LINK_HEADER,
+  APP_ID_HEADER,
+  SDK_HEADER
 } from '@shipbook/core';
 import type {
   User,
@@ -55,6 +57,16 @@ const defaultConfig: ConfigResponse = {
   ]
 };
 
+const PAUSE_KEY = 'pause';
+const DEFAULT_PAUSE_SECONDS = 60 * 60;
+const MAX_PAUSE_SECONDS = 30 * 24 * 60 * 60;
+
+interface Pause {
+  appId: string;
+  sdkVersion: string;
+  until: number;
+}
+
 class SessionManager {
   token?: string;
   sessionLink?: string;
@@ -66,6 +78,7 @@ class SessionManager {
   private isInLoginRequest = false;
   private configured = false;
   private sdkVersion!: string;
+  private pause?: Pause;
 
   // Platform adapters
   private storage!: IStorage;
@@ -104,9 +117,15 @@ class SessionManager {
     if (options.platformVersion) parts.push(`${this.platform.platformName}:${options.platformVersion}`);
     this.sdkVersion = parts.join('/');
 
+    const sdkHeader = `${this.platform.platformName}/${options.platformVersion ?? CLIENT_VERSION}`;
     connectionClient.setDeps({
       getToken: () => this.token,
-      refreshToken: () => this.refreshToken()
+      refreshToken: () => this.refreshToken(),
+      controlPlane: {
+        getHeaders: () => ({ [APP_ID_HEADER]: this.appId!, [SDK_HEADER]: sdkHeader }),
+        isPaused: () => this.isPaused(),
+        onResponse: resp => this.readPauseSignal(resp)
+      }
     });
 
     // Set deps and register class so the factory can create it during config()
@@ -116,6 +135,7 @@ class SessionManager {
       getToken: () => this.token,
       getLoginObj: () => this.loginObj,
       getUser: () => this.user,
+      isPaused: () => this.dropsLogs(),
       sendRequest: (url, body, method) =>
         connectionClient.request(url, body, method as HttpMethod)
     });
@@ -137,6 +157,20 @@ class SessionManager {
     this.appKey = appKey;
     this.loginObj = new Login(appId, appKey, this.platform, this.storage, this.sdkVersion, options);
 
+    let pause: Pause | undefined;
+    try {
+      pause = await this.storage.getObj<Pause>(PAUSE_KEY);
+    } catch (e) {
+      InnerLog.w('stored pause is corrupt, deleting it', e);
+      await this.storage.removeItem(PAUSE_KEY);
+    }
+    const paused = pause?.appId === appId && pause.sdkVersion === this.sdkVersion && pause.until > Date.now();
+    this.pause = paused ? pause : undefined;
+    if (this.pause) {
+      InnerLog.w(`Shipbook is paused until ${new Date(this.pause.until).toISOString()} (from an earlier run); nothing will be sent`);
+    }
+    if (pause && !paused) await this.storage.removeItem(PAUSE_KEY);
+
     let config: ConfigResponse | undefined;
     try {
       config = await this.storage.getObj<ConfigResponse>('config');
@@ -151,9 +185,10 @@ class SessionManager {
   }
 
   async innerLogin(): Promise<string | undefined> {
-    if (this.isInLoginRequest || !this.loginObj) return;
+    if (this.isInLoginRequest || !this.loginObj || this.isPaused()) return;
 
     this.isInLoginRequest = true;
+    this.pause = undefined;
     this.token = undefined;
     this.sessionLink = undefined;
 
@@ -195,6 +230,33 @@ class SessionManager {
       InnerLog.e('there was an error with the request', e);
       return;
     }
+  }
+
+  private isPaused(): boolean {
+    return !!this.pause && Date.now() < this.pause.until;
+  }
+
+  // The cloud appender's first log or user change after a pause ends logs in again: nothing else retries a login.
+  private dropsLogs(): boolean {
+    if (this.isPaused()) return true;
+    if (this.pause) this.innerLogin();
+    return false;
+  }
+
+  private readPauseSignal(resp: Response): void {
+    if (resp.status < 400) return;
+
+    const retryAfter = resp.headers.get('Retry-After') ?? '';
+    const usable = /^\d+$/.test(retryAfter) && Number(retryAfter) > 0;
+    if (!usable && resp.status !== 429) return;
+
+    const seconds = usable ? Math.min(Number(retryAfter), MAX_PAUSE_SECONDS) : DEFAULT_PAUSE_SECONDS;
+    this.pause = { appId: this.appId!, sdkVersion: this.sdkVersion, until: Date.now() + seconds * 1000 };
+    this.token = undefined;
+    this.sessionLink = undefined;
+    this.storage.setObj(PAUSE_KEY, this.pause);
+    const answer = usable ? `with Retry-After ${retryAfter}` : 'without Retry-After';
+    InnerLog.w(`Shipbook paused until ${new Date(this.pause.until).toISOString()}: the server answered ${resp.status} ${answer}`);
   }
 
   private readConfig(config: ConfigResponse): void {

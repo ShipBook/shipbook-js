@@ -49,6 +49,7 @@ export interface SBCloudAppenderDeps {
   getToken: () => string | undefined;
   getLoginObj: () => Login | undefined;
   getUser: () => User | undefined;
+  isPaused: () => boolean;
   sendRequest: (url: string, body: object, method: string) => Promise<Response>;
 }
 
@@ -111,7 +112,7 @@ export default class SBCloudAppender implements BaseAppender {
     InnerLog.i('user changed');
     const user = this.deps.getUser();
     InnerLog.i('user in changeUser', user);
-    if (user) {
+    if (user && !this.deps.isPaused()) {
       this.saveToStorage(user);
       this.createTimer();
     }
@@ -132,6 +133,11 @@ export default class SBCloudAppender implements BaseAppender {
   }
 
   async push(log: BaseLog): Promise<void> {
+    if (this.deps.isPaused()) {
+      this.flushQueue = [];
+      return;
+    }
+
     if (log.type === LogType.Message) {
       await this.pushMessage(log as Message);
     } else if (log.type === LogType.Exception) {

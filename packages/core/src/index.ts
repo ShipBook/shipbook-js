@@ -29,7 +29,9 @@ export {
   Severity,
   SeverityUtil,
   Platform,
-  SESSION_LINK_HEADER
+  SESSION_LINK_HEADER,
+  APP_ID_HEADER,
+  SDK_HEADER
 } from './models';
 
 export type {
