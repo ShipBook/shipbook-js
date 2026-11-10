@@ -251,7 +251,7 @@ describe('SDK control plane', () => {
       await settle();
 
       expect(warn.mock.calls).toEqual([
-        ['paused until 2026-11-09T12:02:00Z: the server answered 401 with x-shipbook-pause 120']
+        ['paused until 2026-11-09T12:02:00.000Z: the server answered 401 with x-shipbook-pause 120']
       ]);
     });
 
@@ -353,7 +353,7 @@ describe('SDK control plane', () => {
       Shipbook.logout();
       await settle();
 
-      expect(warn.mock.calls).toEqual([['backing off until 2026-11-09T12:05:00Z: the server answered 429']]);
+      expect(warn.mock.calls).toEqual([['backing off until 2026-11-09T12:05:00.000Z: the server answered 429']]);
     });
 
     test('after a failed login: nothing is sent, logs and crashes are kept, and the first log afterwards logs in and sends them', async () => {
@@ -459,8 +459,8 @@ describe('SDK control plane', () => {
 
   describe('a login that was rejected', () => {
     test.each([
-      ['a busy 429', 429, {}, 'backing off until 2026-11-09T12:05:00Z: the server answered 429'],
-      ['a refused 401', 401, { [PAUSE_HEADER]: '120' }, 'paused until 2026-11-09T12:02:00Z: the server answered 401 with x-shipbook-pause 120']
+      ['a busy 429', 429, {}, 'backing off until 2026-11-09T12:05:00.000Z: the server answered 429'],
+      ['a refused 401', 401, { [PAUSE_HEADER]: '120' }, 'paused until 2026-11-09T12:02:00.000Z: the server answered 401 with x-shipbook-pause 120']
     ])('by %s reports the signal and does not blame the app key', async (_name, status, headers, warning) => {
       const warn = jest.spyOn(InnerLog, 'w');
       const error = jest.spyOn(InnerLog, 'e');
@@ -516,7 +516,7 @@ describe('SDK control plane', () => {
       expect(await storage.arraySize('session_data')).toBe(0);
       expect(await storage.getObj('pause')).toEqual(pause);
       expect(warn.mock.calls).toEqual([
-        ['paused until 2026-11-09T13:00:00Z (from an earlier run); nothing will be sent']
+        ['paused until 2026-11-09T13:00:00.000Z (from an earlier run); nothing will be sent']
       ]);
 
       now += HOUR;

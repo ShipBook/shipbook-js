@@ -183,7 +183,7 @@ class SessionManager {
       && pause.until > now && pause.until <= now + MAX_PAUSE_SECONDS * 1000;
     this.pause = paused ? pause : undefined;
     if (this.pause) {
-      InnerLog.w(`paused until ${this.isoTime(this.pause.until)} (from an earlier run); nothing will be sent`);
+      InnerLog.w(`paused until ${new Date(this.pause.until).toISOString()} (from an earlier run); nothing will be sent`);
     }
     if (pause && !paused) await this.storage.removeItem(PAUSE_KEY);
 
@@ -281,7 +281,7 @@ class SessionManager {
       this.sessionLink = undefined;
       this.loginDue = true;
       this.storage.setObj(PAUSE_KEY, this.pause);
-      InnerLog.w(`paused until ${this.isoTime(this.pause.until)}: the server answered ${resp.status} with ${PAUSE_HEADER} ${pauseSeconds}`);
+      InnerLog.w(`paused until ${new Date(this.pause.until).toISOString()}: the server answered ${resp.status} with ${PAUSE_HEADER} ${pauseSeconds}`);
       return;
     }
     if (resp.status !== 429 && resp.status !== 503) return;
@@ -290,16 +290,12 @@ class SessionManager {
     const seconds = retryAfter ? Math.min(retryAfter, MAX_BACK_OFF_SECONDS) : DEFAULT_BACK_OFF_SECONDS;
     this.backOffUntil = Date.now() + seconds * 1000;
     if (!this.token) this.loginDue = true;
-    InnerLog.w(`backing off until ${this.isoTime(this.backOffUntil)}: the server answered ${resp.status}`);
+    InnerLog.w(`backing off until ${new Date(this.backOffUntil).toISOString()}: the server answered ${resp.status}`);
   }
 
   private headerSeconds(resp: Response, name: string): number {
     const value = resp.headers.get(name) ?? '';
     return /^\d+$/.test(value) ? Number(value) : 0;
-  }
-
-  private isoTime(time: number): string {
-    return new Date(time).toISOString().replace(/\.\d+Z$/, 'Z');
   }
 
   private readConfig(config: ConfigResponse): void {
