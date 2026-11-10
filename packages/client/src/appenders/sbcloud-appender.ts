@@ -49,6 +49,8 @@ export interface SBCloudAppenderDeps {
   getToken: () => string | undefined;
   getLoginObj: () => Login | undefined;
   getUser: () => User | undefined;
+  isPaused: () => boolean;
+  isBlocked: () => boolean;
   sendRequest: (url: string, body: object, method: string) => Promise<Response>;
 }
 
@@ -111,7 +113,7 @@ export default class SBCloudAppender implements BaseAppender {
     InnerLog.i('user changed');
     const user = this.deps.getUser();
     InnerLog.i('user in changeUser', user);
-    if (user) {
+    if (user && !this.deps.isPaused()) {
       this.saveToStorage(user);
       this.createTimer();
     }
@@ -132,6 +134,11 @@ export default class SBCloudAppender implements BaseAppender {
   }
 
   async push(log: BaseLog): Promise<void> {
+    if (this.deps.isPaused()) {
+      this.flushQueue = [];
+      return;
+    }
+
     if (log.type === LogType.Message) {
       await this.pushMessage(log as Message);
     } else if (log.type === LogType.Exception) {
@@ -186,10 +193,12 @@ export default class SBCloudAppender implements BaseAppender {
       this.timer = undefined;
     }
 
-    if (!this.deps.getToken()) return;
+    if (this.deps.isBlocked() || !this.deps.getToken()) return;
 
     try {
-      const sessionsData = await this.loadSessionData();
+      const storageData = await this.deps.storage.popAllArrayObj(SESSION_DATA) as StorageData[];
+      this.hasLog = false;
+      const sessionsData = await this.loadSessionData(storageData);
       if (sessionsData.length === 0) return;
 
       const resp = await this.deps.sendRequest(
@@ -204,15 +213,15 @@ export default class SBCloudAppender implements BaseAppender {
       } else {
         const text = await resp.text();
         InnerLog.e('got not ok of upload ' + text);
+        // A server that paused the SDK or is busy did not take the batch, so it stays on the device.
+        if (this.deps.isBlocked()) await this.deps.storage.pushArrayObj(SESSION_DATA, storageData);
       }
     } catch (error) {
       InnerLog.e('Failed to send session data', error);
     }
   }
 
-  private async loadSessionData(): Promise<SessionData[]> {
-    const storageData = await this.deps.storage.popAllArrayObj(SESSION_DATA) as StorageData[];
-    this.hasLog = false;
+  private async loadSessionData(storageData: StorageData[]): Promise<SessionData[]> {
     const sessionsData: SessionData[] = [];
     let sessionData: SessionData | undefined = undefined;
 

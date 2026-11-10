@@ -15,6 +15,7 @@ import type { LoginOptions } from './models';
  */
 export default class Shipbook {
   private static configured = false;
+  private static started?: { appId: string; appKey: string; sessionUrl: Promise<string | undefined> };
 
   /**
    * Initialize Shipbook with platform-specific adapters.
@@ -23,10 +24,12 @@ export default class Shipbook {
   static init(adapters: PlatformAdapters & { platformVersion?: string }): void {
     sessionManager.init(adapters);
     Shipbook.configured = true;
+    Shipbook.started = undefined;
   }
 
   /**
-   * Start Shipbook with your app credentials
+   * Start Shipbook with your app credentials.
+   * Calling it again with the same credentials does not log in again: it returns the first call's result.
    *
    * @param appId Your Shipbook app ID
    * @param appKey Your Shipbook app key
@@ -43,7 +46,15 @@ export default class Shipbook {
         'Shipbook not configured. Import from a platform package (@shipbook/react-native, @shipbook/browser, or @shipbook/node)'
       );
     }
-    return await sessionManager.login(appId, appKey, options);
+    if (Shipbook.started?.appId === appId && Shipbook.started.appKey === appKey) return Shipbook.started.sessionUrl;
+
+    const sessionUrl = sessionManager.login(appId, appKey, options);
+    Shipbook.started = { appId, appKey, sessionUrl };
+    // A start that threw made no login request, so the next call may try again.
+    sessionUrl.catch(() => {
+      if (Shipbook.started?.sessionUrl === sessionUrl) Shipbook.started = undefined;
+    });
+    return sessionUrl;
   }
 
   /**

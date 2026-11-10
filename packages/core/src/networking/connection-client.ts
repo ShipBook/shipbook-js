@@ -5,6 +5,13 @@ export enum HttpMethod {
   PUT = 'PUT'
 }
 
+// Client SDKs only: identifies the caller in headers and lets the server stop the SDK's requests for a while.
+interface ControlPlane {
+  getHeaders: () => Record<string, string>;
+  isBlocked: () => boolean;
+  onResponse: (resp: Response) => void;
+}
+
 /**
  * Connection client for API requests
  * Manages authentication and token refresh
@@ -14,18 +21,24 @@ class ConnectionClient {
   
   private getToken: () => string | undefined = () => undefined;
   private refreshTokenFn: () => Promise<boolean> = async () => false;
+  private controlPlane?: ControlPlane;
 
   setDeps(options: {
     getToken: () => string | undefined;
     refreshToken: () => Promise<boolean>;
+    controlPlane?: ControlPlane;
   }): void {
     this.getToken = options.getToken;
     this.refreshTokenFn = options.refreshToken;
+    this.controlPlane = options.controlPlane;
   }
 
   async request(url: string, body?: object, method?: HttpMethod): Promise<Response> {
+    if (this.controlPlane?.isBlocked()) return new Response(null, { status: 429 });
+
     const headers: Headers = new Headers({
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      ...this.controlPlane?.getHeaders()
     });
     
     const token = this.getToken();
@@ -44,6 +57,7 @@ class ConnectionClient {
     }
 
     let resp = await fetch(this.BASE_URL + url, init);
+    this.controlPlane?.onResponse(resp);
     
     // Handle token expiration
     if (!resp.ok && resp.status === 401 && resp.statusText === 'TokenExpired') {
