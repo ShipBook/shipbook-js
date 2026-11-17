@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.0
+### Added
+- `APP_ID_HEADER`, `SDK_HEADER`, `PAUSE_HEADER`, and an optional `controlPlane` hook on `connectionClient.setDeps` (`getHeaders`, `isBlocked`, `onResponse`). The client SDKs use it to identify themselves and honor the server's pause and busy answers. `@shipbook/node` doesn't use it.
+
 ## 2.5.0
 ### Added
 - `Attributes`: an app's own key/values, `Record<string, string | number | boolean>`, so they list and index flat.

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.0
+- Upgrade to get an SDK that follows the Shipbook server: it stops sending when the server refuses your app or is busy, and calling `Shipbook.start` again costs nothing.
+- The SDK obeys the server. If the server refuses the app (an unknown app ID, or traffic far past fair use), the SDK pauses: it sends nothing and drops new logs until the pause ends, at most 30 days and across restarts. If the server or a proxy answers busy (429 or 503), it waits (the `Retry-After` time, 5 minutes without one, at most an hour) and sends the saved logs afterwards. With inner logging on, the SDK prints `paused until …` or `backing off until …`.
+- Every request carries `x-shipbook-app-id` and `x-shipbook-sdk: <platform>/<version>`.
+- Calling `Shipbook.start` again with the same app ID and key returns the first call's result without logging in again.
+
 ## 1.1.1
 - A corrupt cached config no longer blocks login. The SDK deletes it, falls back to the default config, and connects as usual.
 
