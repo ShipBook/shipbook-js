@@ -136,7 +136,7 @@ class SessionManager {
           return headers;
         },
         isBlocked: () => this.isBlocked(),
-        onResponse: resp => this.readSignals(resp)
+        onResponse: (resp, requestHeaders) => this.readSignals(resp, requestHeaders)
       }
     });
 
@@ -267,11 +267,13 @@ class SessionManager {
     return false;
   }
 
-  private readSignals(resp: Response): void {
+  private readSignals(resp: Response, requestHeaders: Headers): void {
     if (resp.status < 400) return;
 
     const pauseSeconds = this.headerSeconds(resp, PAUSE_HEADER);
     if (pauseSeconds) {
+      // The answer is for the app that sent the request; a start() with another appId may have replaced it since.
+      if ((requestHeaders.get(APP_ID_HEADER) ?? undefined) !== this.appId) return;
       this.pause = {
         appId: this.appId!,
         sdkVersion: this.sdkVersion,

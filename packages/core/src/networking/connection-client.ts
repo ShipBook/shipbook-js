@@ -9,7 +9,7 @@ export enum HttpMethod {
 interface ControlPlane {
   getHeaders: () => Record<string, string>;
   isBlocked: () => boolean;
-  onResponse: (resp: Response) => void;
+  onResponse: (resp: Response, requestHeaders: Headers) => void;
 }
 
 /**
@@ -57,7 +57,7 @@ class ConnectionClient {
     }
 
     let resp = await fetch(this.BASE_URL + url, init);
-    this.controlPlane?.onResponse(resp);
+    this.controlPlane?.onResponse(resp, headers);
     
     // Handle token expiration
     if (!resp.ok && resp.status === 401 && resp.statusText === 'TokenExpired') {

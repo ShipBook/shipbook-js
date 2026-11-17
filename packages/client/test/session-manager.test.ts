@@ -216,6 +216,21 @@ describe('SDK control plane', () => {
       expect(fetchSpy).toHaveBeenCalledTimes(2);
     });
 
+    test('a pause answered for the app started before is ignored', async () => {
+      sessionManager.appId = 'app1';
+      fetchSpy.mockImplementationOnce(async () => {
+        sessionManager.appId = 'app2'; // what a start() with another appId does while the request is out
+        return rejected(401, { [PAUSE_HEADER]: '120' });
+      });
+
+      await connectionClient.request('sessions/uploadSavedData', [], HttpMethod.POST);
+      await connectionClient.request('sessions/uploadSavedData', [], HttpMethod.POST);
+
+      expect(headersOf(0).get(APP_ID_HEADER)).toBe('app1');
+      expect(await storage.getItem('pause')).toBeNull();
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+    });
+
     test('a 500 with Retry-After changes nothing', async () => {
       fetchSpy.mockImplementation(async () => rejected(500, { 'Retry-After': '120' }));
 
