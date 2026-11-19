@@ -8,6 +8,11 @@ import { randomUUID } from 'crypto';
 import * as os from 'os';
 
 const MACHINE_UDID_KEY = 'machine_udid';
+// Busy (429/503): wait Retry-After, 300 s without one, at most an hour, as the mobile SDKs do.
+const BUSY_DEFAULT_SECONDS = 300;
+const BUSY_MAX_SECONDS = 3600;
+// Any other failure doubles the wait from maxTime up to this.
+const FAILURE_MAX_SECONDS = 300;
 
 // Mobile's flushQueue, one per request: what waits here goes up only with a log at or above flushSeverity.
 interface FlushQueue {
@@ -39,6 +44,9 @@ export class SBCloudAppender implements BaseAppender {
   private maxBatchSize = 1000;
   // As on the client SDK: while uploads can't drain the queue (no token), it's emptied at this size instead of growing without bound.
   private maxLogSize = 5000;
+  // After a failed upload the timer sends nothing before this (epoch ms); an explicit flush() still does.
+  private heldUntil?: number;
+  private failures = 0;
   private deviceInfo: DeviceInfo;
   private osInfo: OsInfo;
   private appInfo: AppVersionInfo;
@@ -131,7 +139,7 @@ export class SBCloudAppender implements BaseAppender {
   }
 
   private afterSave(): void {
-    if (this.queueSize >= this.maxBatchSize) this.sendSoon();
+    if (this.queueSize >= this.maxBatchSize && !this.heldUntil) this.sendSoon();
     else this.createTimer();
   }
 
@@ -161,10 +169,11 @@ export class SBCloudAppender implements BaseAppender {
 
   private createTimer(): void {
     if (this.timer) return;
+    const wait = this.heldUntil ? Math.max(this.heldUntil - Date.now(), 0) : this.maxTime * 1000;
     this.timer = setTimeout(() => {
       this.timer = undefined;
       this.send();
-    }, this.maxTime * 1000);
+    }, wait);
   }
 
   flush(): Promise<void> {
@@ -186,23 +195,58 @@ export class SBCloudAppender implements BaseAppender {
     const sessions = [...this.cloudQueue.values()];
     this.cloudQueue.clear();
     this.queueSize = 0;
+    this.heldUntil = undefined;
     if (sessions.length === 0) {
       InnerLog.d('No sessions to send');
       return;
     }
     InnerLog.d('Sending ' + sessions.length + ' sessions');
 
+    let response: Response;
     try {
-      const response = await connectionClient.request('sessions/ingest', { sessions }, HttpMethod.POST);
-      if (response.ok) {
-        InnerLog.i('Ingest succeeded: ' + response.status);
-      } else {
-        const text = await response.text();
-        InnerLog.e('Ingest failed: ' + response.status + ' ' + text);
-      }
+      response = await connectionClient.request('sessions/ingest', { sessions }, HttpMethod.POST);
     } catch (error) {
       InnerLog.e('Ingest error:', error);
+      return this.requeue(sessions, this.failureWait());
     }
+    if (response.ok) {
+      this.failures = 0;
+      InnerLog.i('Ingest succeeded: ' + response.status);
+      return;
+    }
+    InnerLog.e('Ingest failed: ' + response.status + ' ' + await response.text());
+    // Busy: the server kept nothing and asks to resend later.
+    if (response.status === 429 || response.status === 503) {
+      const retryAfter = parseInt(response.headers.get('Retry-After') ?? '', 10);
+      return this.requeue(sessions, Math.min(retryAfter > 0 ? retryAfter : BUSY_DEFAULT_SECONDS, BUSY_MAX_SECONDS));
+    }
+    // A server error is retried, backing off; any other 4xx would fail the same way again.
+    if (response.status >= 500) this.requeue(sessions, this.failureWait());
+  }
+
+  private failureWait(): number {
+    this.failures++;
+    return Math.min(this.maxTime * 2 ** this.failures, FAILURE_MAX_SECONDS);
+  }
+
+  // Back in front of what was saved during the upload, and the timer waits `seconds`.
+  private requeue(sessions: Session[], seconds: number): void {
+    for (const session of sessions) {
+      const queued = this.cloudQueue.get(session.sessionId!);
+      if (!queued) {
+        this.cloudQueue.set(session.sessionId!, session);
+        this.queueSize += 1 + session.logs!.length;
+        continue;
+      }
+      queued.logs!.unshift(...session.logs!);
+      queued.requests! += session.requests!;
+      queued.userInfo ??= session.userInfo;
+      this.queueSize += session.logs!.length;
+    }
+    this.heldUntil = Date.now() + seconds * 1000;
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = undefined;
+    this.createTimer();
   }
 
   update(config?: ConfigResponse): void {
