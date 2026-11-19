@@ -258,6 +258,74 @@ describe('SBCloudAppender', () => {
     });
   });
 
+  describe('a failed upload', () => {
+    const failing = (status: number, headers: Record<string, string> = {}) =>
+      ({ ok: false, status, headers: new Headers(headers), text: async () => 'err' } as unknown as Response);
+    const ok = { ok: true, status: 200, text: async () => '' } as unknown as Response;
+    const sentMessages = (call: number) =>
+      (requestSpy.mock.calls[call][1] as { sessions: any[] }).sessions.flatMap(s => s.logs.map((l: any) => l.message));
+
+    beforeEach(() => appender.update({ appenders: [], loggers: [], maxTime: 0.05 }));
+    afterEach(() => requestSpy.mockResolvedValue(ok));
+
+    it('sends nothing to a busy server before Retry-After, then the kept logs with the newer ones', async () => {
+      requestSpy.mockResolvedValue(failing(503, { 'Retry-After': '1' }));
+      await appender.push(new Message('kept', Severity.Info, 'Tag'));
+      await tick(150);
+      expect(requestSpy).toHaveBeenCalledTimes(1);
+
+      requestSpy.mockResolvedValue(ok);
+      await appender.push(new Message('later', Severity.Info, 'Tag'));
+      await tick(500);
+      expect(requestSpy).toHaveBeenCalledTimes(1);
+
+      await tick(700);
+      expect(requestSpy).toHaveBeenCalledTimes(2);
+      expect(sentMessages(1)).toEqual(['kept', 'later']);
+    });
+
+    it('keeps the logs on a 429 without Retry-After and holds the timer', async () => {
+      requestSpy.mockResolvedValue(failing(429));
+      await appender.push(new Message('kept', Severity.Info, 'Tag'));
+      await appender.flush();
+      requestSpy.mockResolvedValue(ok);
+      await tick(300);
+      expect(requestSpy).toHaveBeenCalledTimes(1);
+
+      await appender.flush();
+      expect(sentMessages(1)).toEqual(['kept']);
+    });
+
+    it('keeps the logs when the server is unreachable', async () => {
+      requestSpy.mockRejectedValue(new TypeError('fetch failed'));
+      await appender.push(new Message('kept', Severity.Info, 'Tag'));
+      await appender.flush();
+
+      requestSpy.mockResolvedValue(ok);
+      await appender.flush();
+      expect(sentMessages(1)).toEqual(['kept']);
+    });
+
+    it('retries a failing server less and less often', async () => {
+      requestSpy.mockResolvedValue(failing(500));
+      await appender.push(new Message('kept', Severity.Info, 'Tag'));
+      await tick(650);
+      // Every maxTime (50 ms) would be about 13 tries; doubling from 100 ms is 3.
+      expect(requestSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(requestSpy.mock.calls.length).toBeLessThanOrEqual(4);
+    });
+
+    it('drops a batch the server rejects with another 4xx', async () => {
+      requestSpy.mockResolvedValue(failing(400));
+      await appender.push(new Message('rejected', Severity.Info, 'Tag'));
+      await appender.flush();
+
+      requestSpy.mockResolvedValue(ok);
+      await appender.flush();
+      expect(requestSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('flushQueue (as on mobile)', () => {
     const sentLogs = () => requestSpy.mock.calls.flatMap(call => (call[1] as { sessions: any[] }).sessions.flatMap(s => s.logs));
 
