@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.2
+### Fixed
+- A failed upload no longer loses its logs. When the Shipbook server is busy, the SDK keeps them and sends them after the wait the server asks for (5 minutes if it doesn't say). When the server can't be reached or answers with an error, it retries with a growing wait, up to 5 minutes.
+
 ## 1.7.1
 ### Fixed
 - The `Attributes` type is exported from `@shipbook/node`, so an `attributes` extractor can be typed without importing `@shipbook/core`.
