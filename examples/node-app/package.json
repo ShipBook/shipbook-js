@@ -7,6 +7,8 @@
     "start:express": "tsx src/express-example.ts",
     "start:background": "tsx src/background-job-example.ts",
     "start:shop": "tsx src/shop-example.ts",
+    "start:checkout": "tsx src/checkout-example.ts",
+    "checkout:traffic": "tsx src/checkout-traffic.ts",
     "build": "tsc",
     "start:built": "node lib/index.js"
   },

@@ -18,3 +18,13 @@ The bug is in neither side alone: the backend can't estimate shipping, logs a wa
 4. In the Console, open the shop app's session for the user `sam.taylor`: the `POST /api/orders` request and the backend's warning sit right before the checkout error.
 
 See [Cross-App Session Linking](https://www.shipbook.io/docs/session-linking) for the setup in your own app.
+
+## Claude connector demo: "payments fail, only in Canada"
+
+A checkout API whose release 2.4.0 moved currency conversion to a new FX feed that has no CAD rate. Every Canadian order is charged `NaN` and declined, while USD, EUR and GBP orders keep working. With the [Shipbook connector in Claude](https://www.shipbook.io/docs/mcp), you ask Claude why payments are failing, and it finds the cause in Shipbook's errors, releases and logs.
+
+1. Create an app in the Console for the API and put its credentials in `node-app/.env`.
+2. Run the old release with some traffic: `cd node-app && APP_VERSION=2.3.0 npm run start:checkout`, and in another terminal `npm run checkout:traffic`. Stop the server when it's done.
+3. Run the new release the same way: `APP_VERSION=2.4.0 npm run start:checkout`, then `npm run checkout:traffic`.
+4. Optionally, `cd browser-app && npm run dev` and open http://localhost:5173/checkout.html, then click **Pay**: "Payment failed".
+5. In Claude, connect Shipbook from **Settings** → **Connectors**, and ask: *Why are payments failing in my checkout API?*
