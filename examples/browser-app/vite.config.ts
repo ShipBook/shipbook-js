@@ -13,7 +13,7 @@ export default defineConfig({
     },
   },
   server: {
-    // the shop demo calls the node-app's shop-example backend; same origin, so no CORS setup for x-shipbook-session
+    // the shop and checkout demos call their node-app backend; same origin, so no CORS setup for x-shipbook-session
     proxy: { '/api': 'http://localhost:3001' },
   },
   build: {
@@ -21,6 +21,7 @@ export default defineConfig({
       input: {
         main: path.resolve(__dirname, 'index.html'),
         shop: path.resolve(__dirname, 'shop.html'),
+        checkout: path.resolve(__dirname, 'checkout.html'),
       },
     },
     commonjsOptions: {
